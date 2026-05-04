@@ -83,9 +83,10 @@ function renderAnime(list) {
         return;
     }
 
-    list.forEach(anime => {
+    list.forEach((anime, index) => {
         const card = document.createElement('div');
         card.className = 'anime-card';
+        card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
             <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
             <div class="card-info">
@@ -148,7 +149,7 @@ async function playEpisode(epId) {
                                 `).join('')}
                             </div>
                         </div>
-                    `).join('') : '<p style="color: var(--text-dim);">No download links available.</p>'}
+                    `).join('') : '<p style="color: var(--text-dim);">gatau cok, nanti dah coming soon</p>'}
                 </div>
             </div>
 
@@ -180,7 +181,7 @@ async function fetchMalData() {
         // Fetch Seasonal
         const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
         const seasonalData = await seasonalRes.json();
-        
+
         if (seasonalData.data && seasonalData.data.length > 0) {
             const firstAnime = seasonalData.data[0];
             if (firstAnime.season && firstAnime.year) {
@@ -188,7 +189,7 @@ async function fetchMalData() {
                 document.getElementById('seasonalTitle').innerHTML = `<i class="fas fa-leaf" style="color: #10b981; margin-right: 8px;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year})`;
             }
         }
-        
+
         renderMalAnime(seasonalData.data, 'seasonalGrid');
 
         // Fetch Top
@@ -208,14 +209,15 @@ function renderMalAnime(list, containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
 
-    list.forEach(anime => {
+    list.forEach((anime, index) => {
         const title = anime.title_english || anime.title;
         const card = document.createElement('div');
         card.className = 'anime-card';
+        card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
             <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb">
             <div class="card-info">
-                <span class="ep-tag" style="background: rgba(244, 63, 94, 0.1); color: var(--accent);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
+                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
                 <h3>${title}</h3>
             </div>
         `;
@@ -246,3 +248,15 @@ async function searchAndShowDetails(title) {
 // Initial load
 fetchOngoing();
 fetchMalData();
+
+// Interactive Glow Background
+const glow = document.getElementById('glow');
+if (glow) {
+    document.addEventListener('mousemove', (e) => {
+        // Use requestAnimationFrame for smoother performance
+        requestAnimationFrame(() => {
+            glow.style.left = e.clientX + 'px';
+            glow.style.top = e.clientY + 'px';
+        });
+    });
+}
