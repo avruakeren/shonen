@@ -165,8 +165,10 @@ class OtakudesuScraper:
                         "date": li.find("span", class_=["zeebr", "epl-date"]).text.strip() if li.find("span", class_=["zeebr", "epl-date"]) else ""
                     })
 
+        title_fallback = anime_id.replace('-', ' ').title()
+        
         return {
-            "title": info.get("judul", anime_id),
+            "title": info.get("judul", title_fallback),
             "thumb": thumb,
             "synopsis": synopsis,
             "info": info,
