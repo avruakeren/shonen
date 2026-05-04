@@ -152,5 +152,66 @@ searchInput.onkeypress = (e) => {
     if (e.key === 'Enter') searchAnime(searchInput.value);
 };
 
+// MyAnimeList Data Fetching
+async function fetchMalData() {
+    try {
+        // Fetch Seasonal
+        const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
+        const seasonalData = await seasonalRes.json();
+        renderMalAnime(seasonalData.data, 'seasonalGrid');
+
+        // Fetch Top
+        // Add a slight delay to avoid rate limit
+        setTimeout(async () => {
+            const topRes = await fetch("https://api.jikan.moe/v4/top/anime?limit=10");
+            const topData = await topRes.json();
+            renderMalAnime(topData.data, 'topGrid');
+        }, 1000);
+
+    } catch (error) {
+        console.error("Error fetching MAL data:", error);
+    }
+}
+
+function renderMalAnime(list, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    list.forEach(anime => {
+        const title = anime.title_english || anime.title;
+        const card = document.createElement('div');
+        card.className = 'anime-card';
+        card.innerHTML = `
+            <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb">
+            <div class="card-info">
+                <span class="ep-tag" style="background: rgba(244, 63, 94, 0.1); color: var(--accent);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
+                <h3>${title}</h3>
+            </div>
+        `;
+        card.onclick = () => searchAndShowDetails(title);
+        container.appendChild(card);
+    });
+}
+
+async function searchAndShowDetails(title) {
+    showLoader(true);
+    try {
+        const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(title)}`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+            // Found it on Otakudesu!
+            showDetails(data[0].id);
+        } else {
+            alert(`Sorry, "${title}" is not available on Otakudesu yet.`);
+        }
+    } catch (error) {
+        console.error("Error searching MAL anime:", error);
+        alert("Error connecting to server.");
+    } finally {
+        showLoader(false);
+    }
+}
+
 // Initial load
 fetchOngoing();
+fetchMalData();

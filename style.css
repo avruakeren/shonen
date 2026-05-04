@@ -245,6 +245,27 @@ h1 {
     border-radius: 6px;
 }
 
+/* Horizontal Scroll */
+.horizontal-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding-bottom: 15px;
+    scroll-behavior: smooth;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+.horizontal-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+.horizontal-scroll .anime-card {
+    min-width: 200px;
+    max-width: 200px;
+    flex-shrink: 0;
+}
+
 /* Modal */
 .modal {
     display: none;
@@ -351,6 +372,10 @@ h1 {
     .card-info .ep-tag {
         font-size: 0.65rem;
         padding: 2px 4px;
+    }
+    .horizontal-scroll .anime-card {
+        min-width: 130px;
+        max-width: 130px;
     }
     .detail-layout {
         grid-template-columns: 1fr;
