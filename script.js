@@ -66,7 +66,7 @@ backBtn.onclick = () => {
     detailView.style.display = 'none';
     homeView.style.display = 'block';
     // Clear player if needed
-    if(detailContainer.innerHTML.includes('<iframe')) {
+    if (detailContainer.innerHTML.includes('<iframe')) {
         showDetails(currentAnimeId); // Re-render details to kill iframe
     }
 };
@@ -125,7 +125,7 @@ async function playEpisode(epId) {
         const response = await fetch(`${API_BASE}/stream/${epId}`);
         if (!response.ok) throw new Error("Stream not found");
         const data = await response.json();
-        
+
         const playerHtml = `
             <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; margin-bottom: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 <iframe src="${data.stream_url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
@@ -176,7 +176,7 @@ async function fetchMalData() {
 function renderMalAnime(list, containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
-    
+
     list.forEach(anime => {
         const title = anime.title_english || anime.title;
         const card = document.createElement('div');
@@ -202,7 +202,7 @@ async function searchAndShowDetails(title) {
             // Found it on Otakudesu!
             showDetails(data[0].id);
         } else {
-            alert(`Sorry, "${title}" is not available on Otakudesu yet.`);
+            alert(`Cari manual di search bar yaa`);
         }
     } catch (error) {
         console.error("Error searching MAL anime:", error);
