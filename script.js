@@ -158,6 +158,15 @@ async function fetchMalData() {
         // Fetch Seasonal
         const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
         const seasonalData = await seasonalRes.json();
+        
+        if (seasonalData.data && seasonalData.data.length > 0) {
+            const firstAnime = seasonalData.data[0];
+            if (firstAnime.season && firstAnime.year) {
+                const seasonStr = firstAnime.season.charAt(0).toUpperCase() + firstAnime.season.slice(1);
+                document.getElementById('seasonalTitle').innerHTML = `<i class="fas fa-leaf" style="color: #10b981; margin-right: 8px;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year})`;
+            }
+        }
+        
         renderMalAnime(seasonalData.data, 'seasonalGrid');
 
         // Fetch Top
