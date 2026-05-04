@@ -179,10 +179,27 @@ class OtakudesuScraper:
         soup = self._get_soup(url)
         if not soup: return None
         
+        stream_url = None
         iframe = soup.select_one(".responsive-embed-stream iframe") or soup.select_one(".player iframe") or soup.select_one("iframe")
         if iframe and iframe.has_attr("src"):
-            return {"stream_url": iframe["src"]}
-        return None
+            stream_url = iframe["src"]
+            
+        # Download Links
+        downloads = []
+        dl_container = soup.select_one(".download")
+        if dl_container:
+            for li in dl_container.select("li"):
+                strong = li.select_one("strong")
+                if not strong: continue
+                res = strong.text.strip()
+                links = [{"name": a.text.strip(), "url": a["href"]} for a in li.select("a") if a.has_attr("href")]
+                if links:
+                    downloads.append({"resolution": res, "links": links})
+
+        return {
+            "stream_url": stream_url,
+            "downloads": downloads
+        }
 
 
 if __name__ == "__main__":

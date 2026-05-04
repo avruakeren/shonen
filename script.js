@@ -23,13 +23,18 @@ async function fetchOngoing() {
 }
 
 async function searchAnime(query) {
-    if (!query) return;
+    if (!query) {
+        document.getElementById('mal-sections').style.display = 'block';
+        fetchOngoing();
+        return;
+    }
     showLoader(true);
     try {
         const response = await fetch(`${API_BASE}/search?q=${query}`);
         const data = await response.json();
         renderAnime(data);
         sectionTitle.innerText = `Search Results for "${query}"`;
+        document.getElementById('mal-sections').style.display = 'none';
     } catch (error) {
         console.error("Error searching anime:", error);
     }
@@ -130,7 +135,24 @@ async function playEpisode(epId) {
             <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; margin-bottom: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 <iframe src="${data.stream_url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
             </div>
-            <button onclick="showDetails(currentAnimeId)" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
+            
+            <div class="downloads-section" style="margin: 30px 0; background: var(--glass); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
+                <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;"><i class="fas fa-download" style="color: #10b981;"></i> Download Episode</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    ${data.downloads && data.downloads.length > 0 ? data.downloads.map(dl => `
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="font-weight: 600; color: var(--primary);">${dl.resolution}</span>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                ${dl.links.map(link => `
+                                    <a href="${link.url}" target="_blank" style="background: rgba(255,255,255,0.1); color: #fff; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-size: 0.85rem; transition: background 0.3s;" onmouseover="this.style.background='var(--primary)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">${link.name}</a>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('') : '<p style="color: var(--text-dim);">No download links available.</p>'}
+                </div>
+            </div>
+
+            <button onclick="showDetails(currentAnimeId)" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
                 <i class="fas fa-arrow-left"></i> Back to Episodes
             </button>
         `;
