@@ -94,7 +94,7 @@ function renderAnime(list) {
 }
 
 function renderDetails(anime) {
-    modalBody.innerHTML = `
+    detailContainer.innerHTML = `
         <div class="detail-layout">
             <div class="detail-left">
                 <img src="${anime.thumb}" alt="${anime.title}" class="detail-thumb">
@@ -134,7 +134,7 @@ async function playEpisode(epId) {
                 <i class="fas fa-arrow-left"></i> Back to Episodes
             </button>
         `;
-        modalBody.innerHTML = playerHtml;
+        detailContainer.innerHTML = playerHtml;
     } catch (error) {
         console.error("Error fetching stream:", error);
         alert("Error loading video stream.");
@@ -150,16 +150,6 @@ function showLoader(show) {
 searchBtn.onclick = () => searchAnime(searchInput.value);
 searchInput.onkeypress = (e) => {
     if (e.key === 'Enter') searchAnime(searchInput.value);
-};
-
-closeBtn.onclick = () => {
-    modal.style.display = 'none';
-};
-
-window.onclick = (event) => {
-    if (event.target == modal) {
-        modal.style.display = 'none';
-    }
 };
 
 // Initial load
