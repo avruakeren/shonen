@@ -315,11 +315,31 @@ h1 {
 }
 
 @media (max-width: 768px) {
+    .anime-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+    .card-info {
+        padding: 8px;
+    }
+    .card-info h3 {
+        font-size: 0.75rem;
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .card-info .ep-tag {
+        font-size: 0.65rem;
+        padding: 2px 4px;
+    }
     .detail-layout {
         grid-template-columns: 1fr;
     }
     h1 {
-        font-size: 2.5rem;
+        font-size: 2rem;
     }
     .search-container {
         width: 60%;

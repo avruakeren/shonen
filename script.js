@@ -1,12 +1,13 @@
 const API_BASE = "/api";
-const animeGrid = document.getElementById('animeGrid');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const sectionTitle = document.getElementById('sectionTitle');
+const animeGrid = document.getElementById('animeGrid');
+const homeView = document.getElementById('homeView');
+const detailView = document.getElementById('detailView');
+const detailContainer = document.getElementById('detailContainer');
+const backBtn = document.getElementById('backBtn');
 const loader = document.getElementById('loader');
-const modal = document.getElementById('detailModal');
-const modalBody = document.getElementById('modalBody');
-const closeBtn = document.querySelector('.close-btn');
 
 async function fetchOngoing() {
     showLoader(true);
@@ -46,7 +47,10 @@ async function showDetails(id) {
         const data = await response.json();
         if (data && !data.error) {
             renderDetails(data);
-            modal.style.display = 'flex';
+            // Switch views
+            homeView.style.display = 'none';
+            detailView.style.display = 'block';
+            window.scrollTo(0, 0); // Scroll to top
         } else {
             alert("Could not load anime details.");
         }
@@ -57,6 +61,15 @@ async function showDetails(id) {
         showLoader(false);
     }
 }
+
+backBtn.onclick = () => {
+    detailView.style.display = 'none';
+    homeView.style.display = 'block';
+    // Clear player if needed
+    if(detailContainer.innerHTML.includes('<iframe')) {
+        showDetails(currentAnimeId); // Re-render details to kill iframe
+    }
+};
 
 function renderAnime(list) {
     animeGrid.innerHTML = '';
