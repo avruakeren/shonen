@@ -153,7 +153,7 @@ h2 {
     margin-bottom: 1.5rem;
 }
 
-/* Loader */
+/* Loader & Skeleton */
 .loader {
     width: 20px;
     height: 20px;
@@ -162,6 +162,29 @@ h2 {
     border-radius: 50%;
     animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
     display: none;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton-card {
+    background: linear-gradient(90deg, var(--bg-surface) 25%, #1e293b 50%, var(--bg-surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 16px;
+    aspect-ratio: 2/3;
+    width: 100%;
+}
+
+.skeleton-text {
+    height: 12px;
+    margin-top: 10px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--bg-surface) 25%, #1e293b 50%, var(--bg-surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
 }
 
 @keyframes spin {

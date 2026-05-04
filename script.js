@@ -42,6 +42,7 @@ async function searchAnime(query) {
 }
 
 let currentAnimeId = null;
+let currentEpisodes = [];
 
 async function showDetails(id) {
     showLoader(true);
@@ -51,6 +52,7 @@ async function showDetails(id) {
         if (!response.ok) throw new Error("Anime not found");
         const data = await response.json();
         if (data && !data.error) {
+            currentEpisodes = data.episodes;
             renderDetails(data);
             // Switch views
             homeView.style.display = 'none';
@@ -100,6 +102,7 @@ function renderAnime(list) {
 }
 
 function renderDetails(anime) {
+    const isFav = isFavorite(currentAnimeId);
     detailContainer.innerHTML = `
         <div class="detail-layout">
             <div class="detail-left">
@@ -109,7 +112,14 @@ function renderDetails(anime) {
                 </div>
             </div>
             <div class="detail-right">
-                <h2>${anime.title}</h2>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                    <h2>${anime.title}</h2>
+                    <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})' 
+                            id="favBtn" class="glass" 
+                            style="padding: 10px 15px; border-radius: 12px; border: 1px solid var(--border); color: ${isFav ? '#f43f5e' : '#fff'}; cursor: pointer; transition: all 0.3s;">
+                        <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
+                    </button>
+                </div>
                 <p style="margin: 15px 0; color: #94a3b8; line-height: 1.6;">${anime.synopsis}</p>
                 <div class="episodes-list">
                     <h3>Episodes</h3>
@@ -125,6 +135,66 @@ function renderDetails(anime) {
     `;
 }
 
+// Favorites Logic
+function getFavorites() {
+    return JSON.parse(localStorage.getItem('shonen_favs') || '[]');
+}
+
+function isFavorite(id) {
+    return getFavorites().some(fav => fav.id === id);
+}
+
+function toggleFavorite(anime) {
+    let favs = getFavorites();
+    const index = favs.findIndex(f => f.id === anime.id);
+    
+    if (index > -1) {
+        favs.splice(index, 1);
+    } else {
+        favs.unshift(anime);
+    }
+    
+    localStorage.setItem('shonen_favs', JSON.stringify(favs));
+    
+    // Update button UI if in details
+    const favBtn = document.getElementById('favBtn');
+    if (favBtn) {
+        const isNowFav = isFavorite(anime.id);
+        favBtn.style.color = isNowFav ? '#f43f5e' : '#fff';
+        favBtn.querySelector('i').className = isNowFav ? 'fas fa-heart' : 'far fa-heart';
+    }
+    
+    renderFavorites();
+}
+
+function renderFavorites() {
+    const favs = getFavorites();
+    const section = document.getElementById('favoritesSection');
+    const grid = document.getElementById('favoritesGrid');
+    
+    if (favs.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    grid.innerHTML = '';
+    
+    favs.forEach((anime, index) => {
+        const card = document.createElement('div');
+        card.className = 'anime-card';
+        card.style.animationDelay = `${index * 0.05}s`;
+        card.innerHTML = `
+            <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb">
+            <div class="card-info">
+                <h3>${anime.title}</h3>
+            </div>
+        `;
+        card.onclick = () => showDetails(anime.id);
+        grid.appendChild(card);
+    });
+}
+
 async function playEpisode(epId) {
     showLoader(true);
     try {
@@ -132,9 +202,26 @@ async function playEpisode(epId) {
         if (!response.ok) throw new Error("Stream not found");
         const data = await response.json();
 
+        // Find next episode
+        const currentIndex = currentEpisodes.findIndex(ep => ep.id === epId);
+        // On Otakudesu, episodes are usually listed descending (newest top). 
+        // So next episode (higher number) is usually at currentIndex - 1.
+        const nextEpisode = currentEpisodes[currentIndex - 1];
+
         const playerHtml = `
             <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; margin-bottom: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                 <iframe src="${data.stream_url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="showDetails(currentAnimeId)" class="glass" style="color: white; border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-list"></i> Episodes
+                </button>
+                ${nextEpisode ? `
+                    <button onclick="playEpisode('${nextEpisode.id}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-grow: 1; justify-content: center;">
+                        Next Episode: ${nextEpisode.title} <i class="fas fa-chevron-right"></i>
+                    </button>
+                ` : ''}
             </div>
             
             <div class="downloads-section" style="margin: 30px 0; background: var(--glass); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
@@ -149,15 +236,12 @@ async function playEpisode(epId) {
                                 `).join('')}
                             </div>
                         </div>
-                    `).join('') : '<p style="color: var(--text-dim);">gatau cok, nanti dah coming soon</p>'}
+                    `).join('') : '<p style="color: var(--text-dim);">No download links available.</p>'}
                 </div>
             </div>
-
-            <button onclick="showDetails(currentAnimeId)" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;" onmouseover="this.style.transform='translateX(-5px)'" onmouseout="this.style.transform='translateX(0)'">
-                <i class="fas fa-arrow-left"></i> Back to Episodes
-            </button>
         `;
         detailContainer.innerHTML = playerHtml;
+        window.scrollTo(0, 0);
     } catch (error) {
         console.error("Error fetching stream:", error);
         alert("Error loading video stream.");
@@ -168,6 +252,23 @@ async function playEpisode(epId) {
 
 function showLoader(show) {
     loader.style.display = show ? 'block' : 'none';
+    if (show) {
+        // If we are on home view, show skeletons
+        if (homeView.style.display !== 'none') {
+            showSkeletons();
+        }
+    }
+}
+
+function showSkeletons() {
+    const skeletonHtml = Array(12).fill(0).map(() => `
+        <div class="anime-card" style="pointer-events: none; border-color: transparent;">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text" style="width: 60%;"></div>
+        </div>
+    `).join('');
+    animeGrid.innerHTML = skeletonHtml;
 }
 
 searchBtn.onclick = () => searchAnime(searchInput.value);
@@ -248,6 +349,7 @@ async function searchAndShowDetails(title) {
 // Initial load
 fetchOngoing();
 fetchMalData();
+renderFavorites();
 
 // Interactive Glow Background
 const glow = document.getElementById('glow');
