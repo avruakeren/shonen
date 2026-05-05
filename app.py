@@ -42,5 +42,10 @@ def get_stream(episode_id):
         return jsonify({"error": "Stream not found"}), 404
     return jsonify(data)
 
+@app.route("/api/schedule", methods=["GET"])
+def get_schedule():
+    data = scraper.get_schedule()
+    return jsonify(data)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5000)

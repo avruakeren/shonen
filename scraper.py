@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
+import base64
+import re
 
 class OtakudesuScraper:
     BASE_URL = "https://otakudesu.fit"
@@ -175,31 +177,147 @@ class OtakudesuScraper:
             "episodes": episodes
         }
 
+    def get_schedule(self):
+        url = f"{self.BASE_URL}/jadwal-rilis/"
+        soup = self._get_soup(url)
+        if not soup: return []
+
+        schedule = []
+        # Otakudesu schedule usually grouped by days in .kglist / .kgcontent
+        days = soup.select(".kgcontent") or soup.select(".schedule .kgcontent")
+        day_names = soup.select(".kglist h2") or soup.select(".schedule h2")
+
+        for i, day in enumerate(days):
+            day_name = day_names[i].text.strip() if i < len(day_names) else "Unknown"
+            anime_in_day = []
+            
+            for li in day.select("li"):
+                a = li.find("a")
+                if a:
+                    anime_in_day.append({
+                        "title": a.text.strip(),
+                        "id": a["href"].split("/")[-2],
+                        "link": a["href"]
+                    })
+            
+            if anime_in_day:
+                schedule.append({
+                    "day": day_name,
+                    "anime": anime_in_day
+                })
+        
+        return schedule
+
     def get_stream(self, episode_id):
         print(f"DEBUG: get_stream called for {episode_id}")
         url = f"{self.BASE_URL}/{episode_id}/"
         soup = self._get_soup(url)
         if not soup: return None
-        
-        stream_url = None
-        iframe = soup.select_one(".responsive-embed-stream iframe") or soup.select_one(".player iframe") or soup.select_one("iframe")
-        if iframe and iframe.has_attr("src"):
-            stream_url = iframe["src"]
-            
-        # Download Links
+
+        # --- Streaming Mirrors ---
+        # New Otakudesu uses select.mirror with Base64-encoded iframe HTML as option values.
+        # Each option represents one streaming server.
+        # Quality tabs (360p/480p/720p) appear as separate .mvelement blocks inside .megavid.
+        streams = []
+        quality_labels = ["360p", "480p", "720p", "1080p", "480p", "360p"]
+
+        # Each .mvelement block = one quality level
+        mvelements = soup.select(".megavid .mvelement")
+        if not mvelements:
+            # Fallback: treat the whole page as one quality group
+            mvelements = [soup]
+
+        for q_idx, mvel in enumerate(mvelements):
+            # Determine quality label from any text near the block, or use indexed label
+            quality = quality_labels[q_idx] if q_idx < len(quality_labels) else f"Q{q_idx+1}"
+            # Try to detect quality from heading/label text in this block
+            label_el = mvel.select_one(".quality-label, .res-label, [class*='quality'], [class*='res']")
+            if label_el:
+                quality = label_el.text.strip() or quality
+
+            mirrors_in_block = []
+            for opt in mvel.select("select.mirror option"):
+                val = opt.get("value", "").strip()
+                if not val:
+                    continue
+                label = opt.text.strip()
+                server_idx = opt.get("data-index", str(len(mirrors_in_block) + 1))
+                try:
+                    decoded_html = base64.b64decode(val).decode("utf-8")
+                    tmp = BeautifulSoup(decoded_html, "html.parser")
+                    iframe = tmp.find("iframe")
+                    iframe_src = iframe["src"] if iframe and iframe.has_attr("src") else ""
+                except Exception:
+                    iframe_src = ""
+
+                if iframe_src:
+                    mirrors_in_block.append({
+                        "name": label or f"Server {server_idx}",
+                        "url": iframe_src
+                    })
+
+            # Fallback: if no mirror options found, use the default iframe already in #pembed
+            if not mirrors_in_block:
+                iframe = mvel.select_one("#pembed iframe") or mvel.select_one(".player-embed iframe")
+                if not iframe:
+                    iframe = mvel.select_one("iframe")
+                if iframe and iframe.has_attr("src"):
+                    mirrors_in_block.append({
+                        "name": "Server 1",
+                        "url": iframe["src"]
+                    })
+
+            if mirrors_in_block:
+                streams.append({
+                    "quality": quality,
+                    "mirrors": mirrors_in_block
+                })
+
+        # If we got nothing from mvelements, use the first iframe on the page
+        if not streams:
+            iframe = soup.select_one("iframe")
+            if iframe and iframe.has_attr("src"):
+                streams.append({
+                    "quality": "360p",
+                    "mirrors": [{"name": "Server 1", "url": iframe["src"]}]
+                })
+
+        # --- Download Links ---
         downloads = []
+
+        # NEW structure: look for external download anchor links (GoFile, Mega, GDrive, etc.)
+        download_patterns = re.compile(
+            r'gofile\.io|mega\.nz|drive\.google|1drv\.ms|mediafire|zippyshare|pixeldrain|acefile|solidfiles',
+            re.IGNORECASE
+        )
+        seen_urls = set()
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if download_patterns.search(href) and href not in seen_urls:
+                seen_urls.add(href)
+                link_text = a.get_text(strip=True) or "Download"
+                downloads.append({
+                    "resolution": "Download",
+                    "links": [{"name": link_text, "url": href}]
+                })
+
+        # OLD structure fallback: .download li with strong tags
         dl_container = soup.select_one(".download")
         if dl_container:
             for li in dl_container.select("li"):
                 strong = li.select_one("strong")
-                if not strong: continue
+                if not strong:
+                    continue
                 res = strong.text.strip()
-                links = [{"name": a.text.strip(), "url": a["href"]} for a in li.select("a") if a.has_attr("href")]
+                links = [
+                    {"name": a.text.strip(), "url": a["href"]}
+                    for a in li.select("a") if a.has_attr("href")
+                ]
                 if links:
                     downloads.append({"resolution": res, "links": links})
 
         return {
-            "stream_url": stream_url,
+            "streams": streams,
             "downloads": downloads
         }
 

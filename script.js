@@ -8,6 +8,9 @@ const detailView = document.getElementById('detailView');
 const detailContainer = document.getElementById('detailContainer');
 const backBtn = document.getElementById('backBtn');
 const loader = document.getElementById('loader');
+const scheduleBtn = document.getElementById('scheduleBtn');
+const scheduleSection = document.getElementById('scheduleSection');
+const scheduleContainer = document.getElementById('scheduleContainer');
 
 async function fetchOngoing() {
     showLoader(true);
@@ -195,6 +198,11 @@ function renderFavorites() {
     });
 }
 
+// Active stream state
+let activeQualityIdx = 0;
+let activeServerIdx = 0;
+let currentStreams = [];
+
 async function playEpisode(epId) {
     showLoader(true);
     try {
@@ -202,45 +210,19 @@ async function playEpisode(epId) {
         if (!response.ok) throw new Error("Stream not found");
         const data = await response.json();
 
-        // Find next episode
+        // Support both old {stream_url} and new {streams} API response
+        if (data.stream_url && !data.streams) {
+            data.streams = [{ quality: "360p", mirrors: [{ name: "Server 1", url: data.stream_url }] }];
+        }
+
+        currentStreams = data.streams || [];
+        activeQualityIdx = 0;
+        activeServerIdx = 0;
+
         const currentIndex = currentEpisodes.findIndex(ep => ep.id === epId);
-        // On Otakudesu, episodes are usually listed descending (newest top). 
-        // So next episode (higher number) is usually at currentIndex - 1.
         const nextEpisode = currentEpisodes[currentIndex - 1];
 
-        const playerHtml = `
-            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; margin-bottom: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <iframe src="${data.stream_url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <button onclick="showDetails(currentAnimeId)" class="glass" style="color: white; border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-list"></i> Episodes
-                </button>
-                ${nextEpisode ? `
-                    <button onclick="playEpisode('${nextEpisode.id}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-grow: 1; justify-content: center;">
-                        Next Episode: ${nextEpisode.title} <i class="fas fa-chevron-right"></i>
-                    </button>
-                ` : ''}
-            </div>
-            
-            <div class="downloads-section" style="margin: 30px 0; background: var(--glass); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
-                <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;"><i class="fas fa-download" style="color: #10b981;"></i> Download Episode</h3>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    ${data.downloads && data.downloads.length > 0 ? data.downloads.map(dl => `
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <span style="font-weight: 600; color: var(--primary);">${dl.resolution}</span>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                ${dl.links.map(link => `
-                                    <a href="${link.url}" target="_blank" style="background: rgba(255,255,255,0.1); color: #fff; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-size: 0.85rem; transition: background 0.3s;" onmouseover="this.style.background='var(--primary)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">${link.name}</a>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('') : '<p style="color: var(--text-dim);">No download links available.</p>'}
-                </div>
-            </div>
-        `;
-        detailContainer.innerHTML = playerHtml;
+        renderPlayer(data, nextEpisode);
         window.scrollTo(0, 0);
     } catch (error) {
         console.error("Error fetching stream:", error);
@@ -248,6 +230,158 @@ async function playEpisode(epId) {
     } finally {
         showLoader(false);
     }
+}
+
+function renderPlayer(data, nextEpisode) {
+    const streams = currentStreams;
+
+    // Build quality tabs HTML
+    const qualityTabsHtml = streams.length > 1 ? `
+        <div id="qualityTabs" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            ${streams.map((s, i) => `
+                <button
+                    id="qtab-${i}"
+                    onclick="switchQuality(${i})"
+                    style="padding: 6px 14px; border-radius: 8px; border: 1px solid ${i === activeQualityIdx ? 'var(--primary)' : 'var(--border)'}; 
+                           background: ${i === activeQualityIdx ? 'var(--primary)' : 'var(--glass)'}; 
+                           color: white; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.25s;">
+                    ${s.quality}
+                </button>
+            `).join('')}
+        </div>
+    ` : '';
+
+    // Build server selector HTML for the active quality
+    const activeMirrors = streams[activeQualityIdx]?.mirrors || [];
+    const serverSelectorHtml = activeMirrors.length > 1 ? `
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <span style="font-size: 0.82rem; color: var(--text-dim); white-space: nowrap;"><i class="fas fa-server" style="margin-right: 5px;"></i>Server:</span>
+            <div id="serverBtns" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${activeMirrors.map((m, i) => `
+                    <button
+                        id="srv-${i}"
+                        onclick="switchServer(${i})"
+                        style="padding: 5px 12px; border-radius: 6px; border: 1px solid ${i === activeServerIdx ? 'var(--primary)' : 'var(--border)'}; 
+                               background: ${i === activeServerIdx ? 'rgba(99,102,241,0.25)' : 'var(--glass)'}; 
+                               color: white; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+                        ${m.name}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    // Active iframe URL
+    const activeUrl = activeMirrors[activeServerIdx]?.url || '';
+
+    // Downloads section
+    const downloadsHtml = data.downloads && data.downloads.length > 0
+        ? data.downloads.map(dl => `
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-weight: 600; color: var(--primary); font-size: 0.9rem;">${dl.resolution}</span>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    ${dl.links.map(link => `
+                        <a href="${link.url}" target="_blank" rel="noopener"
+                           style="background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 8px; font-size: 0.83rem; border: 1px solid var(--border); transition: all 0.25s; display: inline-flex; align-items: center; gap: 6px;"
+                           onmouseover="this.style.background='var(--primary)';this.style.borderColor='var(--primary)'"
+                           onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='var(--border)'">
+                            <i class="fas fa-cloud-download-alt"></i>${link.name}
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('')
+        : '<p style="color: var(--text-dim); font-size: 0.9rem;">No download links available.</p>';
+
+    const playerHtml = `
+        ${qualityTabsHtml}
+        ${serverSelectorHtml}
+
+        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; margin-bottom: 20px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <iframe id="streamFrame" src="${activeUrl}"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;"
+                allowfullscreen webkitallowfullscreen mozallowfullscreen
+                sandbox="allow-scripts allow-pointer-lock allow-forms allow-same-origin allow-presentation">
+            </iframe>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;">
+            <button onclick="showDetails(currentAnimeId)" class="glass"
+                style="color: white; border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-list"></i> Episodes
+            </button>
+            ${nextEpisode ? `
+                <button onclick="playEpisode('${nextEpisode.id}')"
+                    style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-grow: 1; justify-content: center;">
+                    Next: ${nextEpisode.title} <i class="fas fa-chevron-right"></i>
+                </button>
+            ` : ''}
+        </div>
+
+        <div class="downloads-section" style="background: var(--glass); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
+            <h3 style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-download" style="color: #10b981;"></i> Download Episode
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                ${downloadsHtml}
+            </div>
+        </div>
+    `;
+
+    detailContainer.innerHTML = playerHtml;
+}
+
+function switchQuality(idx) {
+    if (idx === activeQualityIdx) return;
+    activeQualityIdx = idx;
+    activeServerIdx = 0;
+
+    // Update quality tab styles
+    currentStreams.forEach((_, i) => {
+        const btn = document.getElementById(`qtab-${i}`);
+        if (!btn) return;
+        const active = i === idx;
+        btn.style.background = active ? 'var(--primary)' : 'var(--glass)';
+        btn.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
+    });
+
+    // Rebuild server buttons for new quality
+    const mirrors = currentStreams[idx]?.mirrors || [];
+    const serverBtns = document.getElementById('serverBtns');
+    if (serverBtns) {
+        serverBtns.innerHTML = mirrors.map((m, i) => `
+            <button id="srv-${i}" onclick="switchServer(${i})"
+                style="padding: 5px 12px; border-radius: 6px; border: 1px solid ${i === 0 ? 'var(--primary)' : 'var(--border)'};
+                       background: ${i === 0 ? 'rgba(99,102,241,0.25)' : 'var(--glass)'};
+                       color: white; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;">
+                ${m.name}
+            </button>
+        `).join('');
+    }
+
+    // Switch iframe
+    const frame = document.getElementById('streamFrame');
+    if (frame && mirrors[0]) frame.src = mirrors[0].url;
+}
+
+function switchServer(idx) {
+    if (idx === activeServerIdx) return;
+    activeServerIdx = idx;
+
+    // Update server button styles
+    const mirrors = currentStreams[activeQualityIdx]?.mirrors || [];
+    mirrors.forEach((_, i) => {
+        const btn = document.getElementById(`srv-${i}`);
+        if (!btn) return;
+        const active = i === idx;
+        btn.style.background = active ? 'rgba(99,102,241,0.25)' : 'var(--glass)';
+        btn.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
+    });
+
+    // Switch iframe
+    const frame = document.getElementById('streamFrame');
+    const url = mirrors[idx]?.url;
+    if (frame && url) frame.src = url;
 }
 
 function showLoader(show) {
@@ -275,6 +409,58 @@ searchBtn.onclick = () => searchAnime(searchInput.value);
 searchInput.onkeypress = (e) => {
     if (e.key === 'Enter') searchAnime(searchInput.value);
 };
+
+// Schedule Logic
+scheduleBtn.onclick = async () => {
+    if (scheduleSection.style.display === 'none') {
+        await fetchSchedule();
+        scheduleSection.style.display = 'block';
+        scheduleSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        scheduleSection.style.display = 'none';
+    }
+};
+
+async function fetchSchedule() {
+    if (scheduleContainer.innerHTML.trim() !== '') return; // Already loaded
+    
+    showLoader(true);
+    try {
+        const response = await fetch(`${API_BASE}/schedule`);
+        const data = await response.json();
+        renderSchedule(data);
+    } catch (error) {
+        console.error("Error fetching schedule:", error);
+    } finally {
+        showLoader(false);
+    }
+}
+
+function renderSchedule(data) {
+    scheduleContainer.innerHTML = '';
+    data.forEach(item => {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'glass';
+        dayDiv.style.padding = '20px';
+        dayDiv.style.borderRadius = '16px';
+        dayDiv.style.border = '1px solid var(--glass-border)';
+        
+        dayDiv.innerHTML = `
+            <h3 style="color: var(--primary); margin-bottom: 12px; font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 8px;">${item.day}</h3>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                ${item.anime.map(anime => `
+                    <button onclick="showDetails('${anime.id}')" 
+                            style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.3s;"
+                            onmouseover="this.style.background='var(--primary)';this.style.borderColor='var(--primary)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='var(--border)'">
+                        ${anime.title}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+        scheduleContainer.appendChild(dayDiv);
+    });
+}
 
 // MyAnimeList Data Fetching
 async function fetchMalData() {

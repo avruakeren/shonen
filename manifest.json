@@ -1,0 +1,22 @@
+{
+  "name": "Shonen Anime",
+  "short_name": "Shonen",
+  "description": "Watch Anime Ads Free with Premium Experience",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3252/3252906.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3252/3252906.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
