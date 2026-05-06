@@ -81,7 +81,8 @@ function renderAnime(list, container) {
     list.forEach((anime, index) => {
         const card = document.createElement('div');
         card.className = 'anime-card';
-        card.style.animationDelay = `${index * 0.05}s`;
+        // Staggered delay yang lebih terasa
+        card.style.animationDelay = `${index * 0.1}s`;
         card.innerHTML = `
             <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
             <div class="card-info">
@@ -211,13 +212,29 @@ const mobileSearchBtn = document.getElementById('mobileSearchBtn');
 const closeSearch = document.getElementById('closeSearch');
 
 function openSearch() {
+    if (!searchOverlay) return;
     searchOverlay.style.display = 'flex';
-    setTimeout(() => searchInput.focus(), 100);
+    searchOverlay.style.opacity = '0';
+    requestAnimationFrame(() => {
+        searchOverlay.style.transition = 'opacity 0.3s ease';
+        searchOverlay.style.opacity = '1';
+    });
+    setTimeout(() => {
+        if (searchInput) searchInput.focus();
+    }, 200);
+}
+
+function closeSearchUI() {
+    if (!searchOverlay) return;
+    searchOverlay.style.opacity = '0';
+    setTimeout(() => {
+        searchOverlay.style.display = 'none';
+    }, 300);
 }
 
 if (searchToggle) searchToggle.onclick = openSearch;
 if (mobileSearchBtn) mobileSearchBtn.onclick = openSearch;
-if (closeSearch) closeSearch.onclick = () => searchOverlay.style.display = 'none';
+if (closeSearch) closeSearch.onclick = closeSearchUI;
 
 // Routing
 function handleRoute() {
@@ -278,13 +295,24 @@ handleRoute();
 fetchOngoing();
 fetchMalData();
 
-// Interactive Glow Background
-const glow = document.getElementById('glow');
-if (glow) {
-    document.addEventListener('mousemove', (e) => {
-        requestAnimationFrame(() => {
-            glow.style.left = e.clientX + 'px';
-            glow.style.top = e.clientY + 'px';
-        });
-    });
+// Interactive Glow Background with Smoothing
+let mouseX = 0, mouseY = 0;
+let glowX = 0, glowY = 0;
+
+document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+});
+
+function animateGlow() {
+    const lerp = 0.1; // Kelembutan pergerakan
+    glowX += (mouseX - glowX) * lerp;
+    glowY += (mouseY - glowY) * lerp;
+    
+    if (glow) {
+        glow.style.left = `${glowX}px`;
+        glow.style.top = `${glowY}px`;
+    }
+    requestAnimationFrame(animateGlow);
 }
+animateGlow();
