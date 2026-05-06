@@ -14,8 +14,7 @@ const views = {
     library: document.getElementById('libraryView'),
     favorites: document.getElementById('favoritesView'),
     schedule: document.getElementById('scheduleView'),
-    search: document.getElementById('searchView'),
-    detail: document.getElementById('detailView')
+    search: document.getElementById('searchView')
 };
 
 function showLoader(show) {
@@ -71,33 +70,6 @@ async function searchAnime(query) {
 let currentAnimeId = null;
 let currentEpisodes = [];
 
-async function showDetails(id) {
-    showLoader(true);
-    currentAnimeId = id;
-    try {
-        const response = await fetch(`${API_BASE}/details/${id}`);
-        if (!response.ok) throw new Error("Anime not found");
-        const data = await response.json();
-        if (data && !data.error) {
-            currentEpisodes = data.episodes;
-            renderDetails(data);
-            showView('detail');
-            window.scrollTo(0, 0);
-        } else {
-            alert("Could not load anime details.");
-        }
-    } catch (error) {
-        console.error("Error fetching details:", error);
-        alert("Error connecting to server.");
-    } finally {
-        showLoader(false);
-    }
-}
-
-document.getElementById('backBtn').onclick = () => {
-    window.history.back();
-};
-
 function renderAnime(list, container) {
     if (!container) return;
     container.innerHTML = '';
@@ -117,92 +89,65 @@ function renderAnime(list, container) {
                 <h3>${anime.title}</h3>
             </div>
         `;
-        card.onclick = () => showDetails(anime.id);
+        card.onclick = () => {
+            window.location.href = `watch.html?id=${anime.id}`;
+        };
         container.appendChild(card);
     });
 }
 
-function renderDetails(anime) {
-    const isFav = isFavorite(currentAnimeId);
-    detailContainer.innerHTML = `
-        <div class="detail-layout">
-            <div class="detail-left">
-                <img src="${anime.thumb}" alt="${anime.title}" class="detail-thumb">
-                <div style="margin-top: 20px;">
-                    ${Object.entries(anime.info).map(([k, v]) => `<p><strong>${k.replace(/_/g, ' ')}:</strong> ${v}</p>`).join('')}
-                </div>
-            </div>
-            <div class="detail-right">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
-                    <h2>${anime.title}</h2>
-                    <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})' 
-                            id="favBtn" class="glass" 
-                            style="padding: 10px 15px; border-radius: 12px; border: 1px solid var(--border); color: ${isFav ? '#f43f5e' : '#fff'}; cursor: pointer; transition: all 0.3s;">
-                        <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
-                    </button>
-                </div>
-                <p style="margin: 15px 0; color: #94a3b8; line-height: 1.6;">${anime.synopsis}</p>
-                <div class="episodes-list">
-                    <h3>Episodes</h3>
-                    ${anime.episodes.map(ep => `
-                        <div onclick="playEpisode('${ep.id}')" class="ep-item" style="cursor: pointer;">
-                            <span><i class="fas fa-play-circle" style="color: var(--primary); margin-right: 10px;"></i> ${ep.title}</span>
-                            <span style="color: #6366f1;">${ep.date}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-}
 
-function isFavorite(id) {
-    const favs = JSON.parse(localStorage.getItem('shonen_favs') || '[]');
-    return favs.some(f => f.id === id);
-}
-
-function toggleFavorite(anime) {
-    let favs = JSON.parse(localStorage.getItem('shonen_favs') || '[]');
-    const index = favs.findIndex(f => f.id === anime.id);
-    
-    if (index > -1) {
-        favs.splice(index, 1);
-    } else {
-        favs.unshift(anime);
-    }
-    
-    localStorage.setItem('shonen_favs', JSON.stringify(favs));
-    showDetails(anime.id); // Re-render to update heart icon
-}
-
-// Include existing helper functions for Mal, Stream, etc. (Condensed)
+// Consolidated MyAnimeList Logic
 async function fetchMalData() {
     try {
-        const [seasonal, top] = await Promise.all([
-            fetch('https://api.jikan.moe/v4/seasons/now?limit=10').then(r => r.json()),
-            fetch('https://api.jikan.moe/v4/top/anime?limit=10').then(r => r.json())
-        ]);
-        renderMalGrid(seasonal.data, document.getElementById('seasonalGrid'));
-        renderMalGrid(top.data, document.getElementById('topGrid'));
-    } catch (e) { console.error(e); }
+        // Fetch Seasonal with cache check or delay to avoid 429
+        const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
+        const seasonalData = await seasonalRes.json();
+
+        if (seasonalData.data) {
+            const firstAnime = seasonalData.data[0];
+            if (firstAnime && firstAnime.season) {
+                const seasonStr = firstAnime.season.charAt(0).toUpperCase() + firstAnime.season.slice(1);
+                const titleEl = document.getElementById('seasonalTitle');
+                if (titleEl) titleEl.innerHTML = `<i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year || ''})`;
+            }
+            renderMalAnime(seasonalData.data, 'seasonalGrid');
+        }
+
+        // Delay for Top Rated to respect Jikan API limits
+        setTimeout(async () => {
+            try {
+                const topRes = await fetch("https://api.jikan.moe/v4/top/anime?limit=10");
+                const topData = await topRes.json();
+                if (topData.data) renderMalAnime(topData.data, 'topGrid');
+            } catch (e) { console.error("Top MAL Error:", e); }
+        }, 1200);
+
+    } catch (error) {
+        console.error("MAL Fetch Error:", error);
+    }
 }
 
-function renderMalGrid(data, container) {
+function renderMalAnime(list, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
     container.innerHTML = '';
-    data.forEach(anime => {
+
+    list.forEach((anime, index) => {
+        const title = anime.title_english || anime.title;
         const card = document.createElement('div');
         card.className = 'anime-card';
-        card.onclick = () => {
-            window.location.hash = `#/search?q=${encodeURIComponent(anime.title)}`;
-            searchAnime(anime.title);
-        };
+        card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
-            <img src="${anime.images.webp.large_image_url}" class="card-thumb" loading="lazy">
+            <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb" loading="lazy">
             <div class="card-info">
-                <span class="ep-tag">${anime.score || 'N/A'} ★</span>
-                <h3>${anime.title}</h3>
+                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
+                <h3>${title}</h3>
             </div>
         `;
+        card.onclick = () => {
+            window.location.hash = `#/search?q=${encodeURIComponent(title)}`;
+        };
         container.appendChild(card);
     });
 }
@@ -246,58 +191,6 @@ function renderSchedule(data, container) {
     });
 }
 
-// MyAnimeList Data Fetching
-async function fetchMalData() {
-    try {
-        // Fetch Seasonal
-        const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
-        const seasonalData = await seasonalRes.json();
-
-        if (seasonalData.data && seasonalData.data.length > 0) {
-            const firstAnime = seasonalData.data[0];
-            if (firstAnime.season && firstAnime.year) {
-                const seasonStr = firstAnime.season.charAt(0).toUpperCase() + firstAnime.season.slice(1);
-                document.getElementById('seasonalTitle').innerHTML = `<i class="fas fa-leaf" style="color: #10b981; margin-right: 8px;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year})`;
-            }
-        }
-
-        renderMalAnime(seasonalData.data, 'seasonalGrid');
-
-        // Fetch Top
-        // Add a slight delay to avoid rate limit
-        setTimeout(async () => {
-            const topRes = await fetch("https://api.jikan.moe/v4/top/anime?limit=10");
-            const topData = await topRes.json();
-            renderMalAnime(topData.data, 'topGrid');
-        }, 1000);
-
-    } catch (error) {
-        console.error("Error fetching MAL data:", error);
-    }
-}
-
-function renderMalAnime(list, containerId) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = '';
-
-    list.forEach((anime, index) => {
-        const title = anime.title_english || anime.title;
-        const card = document.createElement('div');
-        card.className = 'anime-card';
-        card.style.animationDelay = `${index * 0.05}s`;
-        card.innerHTML = `
-            <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb">
-            <div class="card-info">
-                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
-                <h3>${title}</h3>
-            </div>
-        `;
-        card.onclick = () => {
-            window.location.hash = `#/search?q=${encodeURIComponent(title)}`;
-        };
-        container.appendChild(card);
-    });
-}
 
 // Search Events
 if (searchInput) {
@@ -376,7 +269,7 @@ async function fetchSchedule() {
 }
 
 function renderFavorites() {
-    const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const favs = JSON.parse(localStorage.getItem('shonen_favs') || '[]');
     renderAnime(favs, favoritesGrid);
 }
 
