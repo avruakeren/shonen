@@ -23,20 +23,15 @@ class OtakudesuScraper:
             print(f"Error fetching {url}: {e}")
             return None
 
-    def get_ongoing(self):
-        soup = self._get_soup(self.BASE_URL)
+    def get_ongoing(self, page=1):
+        url = f"{self.BASE_URL}/ongoing-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/ongoing-anime/"
+        soup = self._get_soup(url)
         if not soup: return []
 
         anime_list = []
-        # The homepage usually has "Latest Release"
-        # Based on the markdown, it's a list of links with titles
-        # Let's try to find elements that contain "Episode" and a link
-        
-        # New selector based on typical AnimeRocket theme
         items = soup.select(".venz ul li") or soup.select(".post-show ul li") or soup.select(".listupd .bs")
         
         if not items:
-            # Fallback: search for any article with class 'bs'
             items = soup.find_all("article", class_="bs")
 
         for item in items:
@@ -64,6 +59,32 @@ class OtakudesuScraper:
             except Exception as e:
                 print(f"Error parsing item: {e}")
                 
+        return anime_list
+
+    def get_movies(self, page=1):
+        url = f"{self.BASE_URL}/complete-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/complete-anime/"
+        soup = self._get_soup(url)
+        if not soup: return []
+        
+        anime_list = []
+        items = soup.select(".venz ul li") or soup.select(".post-show ul li") or soup.select(".listupd .bs")
+        
+        for item in items:
+            try:
+                title = item.find("h2").text.strip() if item.find("h2") else ""
+                link = item.find("a")["href"] if item.find("a") else ""
+                thumb = item.find("img")["src"] if item.find("img") else ""
+                
+                if title and link:
+                    anime_id = link.split("/")[-2]
+                    anime_list.append({
+                        "title": title,
+                        "link": link,
+                        "id": anime_id,
+                        "thumb": thumb
+                    })
+            except Exception as e:
+                print(f"Error parsing movie item: {e}")
         return anime_list
 
     def search(self, query):
@@ -183,21 +204,30 @@ class OtakudesuScraper:
         if not soup: return []
 
         schedule = []
-        # Otakudesu schedule usually grouped by days in .kglist / .kgcontent
-        days = soup.select(".kgcontent") or soup.select(".schedule .kgcontent")
-        day_names = soup.select(".kglist h2") or soup.select(".schedule h2")
-
-        for i, day in enumerate(days):
-            day_name = day_names[i].text.strip() if i < len(day_names) else "Unknown"
-            anime_in_day = []
+        # Otakudesu schedule uses .bixbox.schedulepage for each day
+        day_containers = soup.select(".bixbox.schedulepage")
+        
+        for container in day_containers:
+            # Day name is usually in h3 or similar
+            day_el = container.select_one("h3")
+            if not day_el:
+                day_el = container.select_one(".sett")
             
-            for li in day.select("li"):
-                a = li.find("a")
-                if a:
+            day_name = day_el.text.strip() if day_el else "Unknown"
+            
+            anime_in_day = []
+            # Anime links are inside .listupd or just <a> tags
+            for a in container.select(".listupd a") or container.select("a"):
+                title = a.text.strip()
+                href = a.get("href", "")
+                if title and "/series/" in href:
+                    # Clean up title (remove time or episode count if present)
+                    # Example title: "02:28 13 Kanojo, Okarishimasu"
+                    clean_title = re.sub(r'^\d+:\d+\s+\d+\s+', '', title).strip()
                     anime_in_day.append({
-                        "title": a.text.strip(),
-                        "id": a["href"].split("/")[-2],
-                        "link": a["href"]
+                        "title": clean_title or title,
+                        "id": href.split("/")[-2],
+                        "link": href
                     })
             
             if anime_in_day:

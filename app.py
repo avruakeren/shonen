@@ -17,7 +17,14 @@ def static_proxy(path):
 
 @app.route("/api/ongoing", methods=["GET"])
 def get_ongoing():
-    data = scraper.get_ongoing()
+    page = request.args.get('page', 1, type=int)
+    data = scraper.get_ongoing(page=page)
+    return jsonify(data)
+
+@app.route("/api/movies", methods=["GET"])
+def get_movies():
+    page = request.args.get('page', 1, type=int)
+    data = scraper.get_movies(page=page)
     return jsonify(data)
 
 @app.route("/api/search", methods=["GET"])

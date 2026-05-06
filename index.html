@@ -18,84 +18,118 @@
 <body>
     <div id="glow"></div>
 
-    <nav class="glass-nav">
-        <div class="logo">
+    <!-- Side Navigation -->
+    <nav class="side-nav">
+        <div class="nav-logo">
             <i class="fas fa-bolt"></i>
-            <span>SHONEN</span>
         </div>
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search anime...">
-            <button id="searchBtn"><i class="fas fa-search"></i></button>
-            <button id="scheduleBtn" class="glass" style="margin-left: 10px; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; border: 1px solid var(--glass-border);"><i class="fas fa-calendar-alt"></i></button>
+        <div class="nav-items">
+            <a href="#/" class="nav-item active" title="Home"><i class="fas fa-home"></i></a>
+            <a href="#/library" class="nav-item" title="Library"><i class="fas fa-film"></i></a>
+            <a href="#/schedule" class="nav-item" title="Schedule"><i class="fas fa-calendar-alt"></i></a>
+            <a href="#/favorites" class="nav-item" title="Favorites"><i class="fas fa-heart"></i></a>
+        </div>
+        <div class="nav-footer">
+            <button id="searchToggle" title="Search"><i class="fas fa-search"></i></button>
         </div>
     </nav>
 
+    <!-- Top Bar (Mobile/Search) -->
+    <div class="top-bar">
+        <div class="search-overlay" id="searchOverlay" style="display: none;">
+            <div class="search-bar">
+                <button id="executeSearch"><i class="fas fa-search"></i></button>
+                <input type="text" id="searchInput" placeholder="Search anime..." autocomplete="off">
+                <button id="closeSearch"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div class="mobile-header">
+            <div class="logo"><i class="fas fa-bolt"></i> SHONEN</div>
+            <button id="mobileSearchBtn"><i class="fas fa-search"></i></button>
+        </div>
+    </div>
+
     <main id="app">
+        <!-- Loader -->
+        <div id="loader" class="loader-container">
+            <div class="loader"></div>
+        </div>
+
         <!-- Home View -->
-        <div id="homeView">
+        <div id="homeView" class="view active">
             <section id="hero">
                 <h1>Watch Anime <span class="gradient-text">Ads Free!</span></h1>
+                <p style="color: var(--text-muted); margin-top: 10px;">The ultimate premium experience for anime lovers.</p>
             </section>
 
-            <section id="scheduleSection" style="display: none; margin-bottom: 3rem;">
-                <div class="section-header" style="margin-bottom: 1.5rem;">
-                    <h2><i class="fas fa-calendar-day" style="color: var(--primary); margin-right: 8px;"></i> Weekly Schedule</h2>
+            <section id="ongoingSection">
+                <div class="section-header">
+                    <h2><i class="fas fa-fire" style="color: #f97316;"></i> Latest Updates</h2>
                 </div>
-                <div class="schedule-container" id="scheduleContainer" style="display: flex; flex-direction: column; gap: 20px;">
-                    <!-- Schedule data will be injected here -->
-                </div>
-            </section>
-
-            <section id="mal-sections" style="margin-bottom: 3rem;">
-                <!-- My Favorites -->
-                <div id="favoritesSection" style="display: none; margin-bottom: 3rem;">
-                    <div class="section-header" style="margin-bottom: 1rem;">
-                        <h2><i class="fas fa-heart" style="color: #f43f5e; margin-right: 8px;"></i> My Favorites</h2>
-                    </div>
-                    <div class="horizontal-scroll" id="favoritesGrid">
-                        <!-- Favorites injected here -->
-                    </div>
-                </div>
-
-                <!-- Seasonal -->
-                <div class="section-header" style="margin-bottom: 1rem;">
-                    <h2 id="seasonalTitle"><i class="fas fa-leaf" style="color: #10b981; margin-right: 8px;"></i>
-                        Seasonal Anime</h2>
-                </div>
-                <div class="horizontal-scroll" id="seasonalGrid">
+                <div class="anime-grid" id="ongoingGrid">
                     <!-- Cards injected here -->
                 </div>
+                <div style="text-align: center; margin-top: 40px;">
+                    <button id="loadMoreOngoing" class="glass" style="padding: 12px 30px; border-radius: 99px; color: white; cursor: pointer; border: 1px solid var(--glass-border); font-weight: 600;">Load More</button>
+                </div>
+            </section>
+
+            <section id="mal-sections" style="margin-top: 4rem;">
+                <!-- Seasonal -->
+                <div class="section-header">
+                    <h2><i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime</h2>
+                </div>
+                <div class="horizontal-scroll" id="seasonalGrid"></div>
 
                 <!-- Top Anime -->
-                <div class="section-header" style="margin-top: 2rem; margin-bottom: 1rem;">
-                    <h2><i class="fas fa-trophy" style="color: #fbbf24; margin-right: 8px;"></i> Top Anime</h2>
+                <div class="section-header" style="margin-top: 3rem;">
+                    <h2><i class="fas fa-trophy" style="color: #fbbf24;"></i> Top Rated</h2>
                 </div>
-                <div class="horizontal-scroll" id="topGrid">
-                    <!-- Cards injected here -->
-                </div>
-            </section>
-
-            <section id="content">
-                <div class="section-header">
-                    <h2 id="sectionTitle">Latest Releases</h2>
-                    <div class="loader" id="loader"></div>
-                </div>
-                <div class="anime-grid" id="animeGrid">
-                    <!-- Anime cards will be injected here -->
-                </div>
+                <div class="horizontal-scroll" id="topGrid"></div>
             </section>
         </div>
 
-        <!-- Detail View -->
-        <div id="detailView" style="display: none; padding-top: 20px;">
-            <button id="backBtn" class="back-btn"
-                style="background: var(--glass); color: white; border: 1px solid var(--glass-border); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; transition: all 0.3s ease;">
-                <i class="fas fa-arrow-left"></i> Back to Home
-            </button>
-            <div id="detailContainer" class="glass"
-                style="padding: 30px; border-radius: 24px; border: 1px solid var(--glass-border);">
-                <!-- Details will be injected here -->
+        <!-- Library View (Movies/Complete) -->
+        <div id="libraryView" class="view">
+            <section id="hero">
+                <h1>Explore <span class="gradient-text">Library</span></h1>
+            </section>
+            <div class="anime-grid" id="libraryGrid"></div>
+            <div style="text-align: center; margin-top: 40px;">
+                <button id="loadMoreLibrary" class="glass" style="padding: 12px 30px; border-radius: 99px; color: white; cursor: pointer; border: 1px solid var(--glass-border); font-weight: 600;">Load More</button>
             </div>
+        </div>
+
+        <!-- Favorites View -->
+        <div id="favoritesView" class="view">
+            <div class="section-header">
+                <h2><i class="fas fa-heart" style="color: #f43f5e;"></i> My Favorites</h2>
+            </div>
+            <div class="anime-grid" id="favoritesGrid"></div>
+        </div>
+
+        <!-- Schedule View -->
+        <div id="scheduleView" class="view">
+            <div class="section-header">
+                <h2><i class="fas fa-calendar-day" style="color: var(--primary);"></i> Weekly Schedule</h2>
+            </div>
+            <div class="schedule-container" id="scheduleContainer"></div>
+        </div>
+
+        <!-- Search View -->
+        <div id="searchView" class="view">
+            <div class="section-header">
+                <h2>Search Results for: <span id="searchQueryText" class="gradient-text">...</span></h2>
+            </div>
+            <div class="anime-grid" id="searchGrid"></div>
+        </div>
+
+        <!-- Details View -->
+        <div id="detailView" class="view">
+            <button id="backBtn" class="glass" style="margin-bottom: 20px; color: white; border: 1px solid var(--border); padding: 8px 15px; border-radius: 8px; cursor: pointer;">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <div id="detailContainer"></div>
         </div>
     </main>
 
