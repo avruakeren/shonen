@@ -177,7 +177,7 @@ function renderSchedule(data, container) {
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${item.anime.map(anime => `
-                    <button onclick="showDetails('${anime.id}')" 
+                    <button onclick="window.location.href='watch.html?id=${anime.id}'" 
                             style="text-align: left; background: rgba(255,255,255,0.03); color: var(--text-main); border: 1px solid var(--border); padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 0.88rem; transition: all 0.25s; display: flex; align-items: center; gap: 10px;"
                             onmouseover="this.style.background='var(--primary)';this.style.borderColor='var(--primary)';this.style.transform='translateX(5px)'"
                             onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='var(--border)';this.style.transform='translateX(0)'">

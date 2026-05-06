@@ -11,6 +11,10 @@ scraper = OtakudesuScraper()
 def index():
     return send_from_directory('.', 'index.html')
 
+@app.route("/watch.html")
+def watch():
+    return send_from_directory('.', 'watch.html')
+
 @app.route("/<path:path>")
 def static_proxy(path):
     return send_from_directory('.', path)

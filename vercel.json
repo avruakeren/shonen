@@ -16,6 +16,14 @@
     {
       "src": "script.js",
       "use": "@vercel/static"
+    },
+    {
+      "src": "watch.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "watch.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
