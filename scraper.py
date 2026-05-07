@@ -204,37 +204,50 @@ class OtakudesuScraper:
         if not soup: return []
 
         schedule = []
-        # Otakudesu schedule uses .bixbox.schedulepage for each day
+        # Try different container patterns
         day_containers = soup.select(".bixbox.schedulepage")
         
-        for container in day_containers:
-            # Day name is usually in h3 or similar
-            day_el = container.select_one("h3")
-            if not day_el:
-                day_el = container.select_one(".sett")
-            
-            day_name = day_el.text.strip() if day_el else "Unknown"
-            
-            anime_in_day = []
-            # Anime links are inside .listupd or just <a> tags
-            for a in container.select(".listupd a") or container.select("a"):
-                title = a.text.strip()
-                href = a.get("href", "")
-                if title and "/series/" in href:
-                    # Clean up title (remove time or episode count if present)
-                    # Example title: "02:28 13 Kanojo, Okarishimasu"
-                    clean_title = re.sub(r'^\d+:\d+\s+\d+\s+', '', title).strip()
-                    anime_in_day.append({
-                        "title": clean_title or title,
-                        "id": href.split("/")[-2],
-                        "link": href
-                    })
-            
-            if anime_in_day:
-                schedule.append({
-                    "day": day_name,
-                    "anime": anime_in_day
-                })
+        if not day_containers:
+            # Fallback: Find days by h3 tags and collect next until next h3
+            for h3 in soup.find_all("h3"):
+                day_name = h3.text.strip()
+                if day_name.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu"]:
+                    anime_in_day = []
+                    curr = h3.find_next_sibling()
+                    while curr and curr.name != "h3":
+                        for a in curr.find_all("a", href=True):
+                            title = a.text.strip()
+                            href = a["href"]
+                            if title and "/series/" in href:
+                                clean_title = re.sub(r'^\d+:\d+\s+\d+\s+', '', title).strip()
+                                anime_in_day.append({
+                                    "title": clean_title or title,
+                                    "id": href.split("/")[-2],
+                                    "link": href
+                                })
+                        curr = curr.find_next_sibling()
+                    
+                    if anime_in_day:
+                        schedule.append({"day": day_name, "anime": anime_in_day})
+        else:
+            for container in day_containers:
+                day_el = container.select_one("h3") or container.select_one(".sett")
+                day_name = day_el.text.strip() if day_el else "Unknown"
+                
+                anime_in_day = []
+                for a in container.select(".listupd a") or container.select("a"):
+                    title = a.text.strip()
+                    href = a.get("href", "")
+                    if title and "/series/" in href:
+                        clean_title = re.sub(r'^\d+:\d+\s+\d+\s+', '', title).strip()
+                        anime_in_day.append({
+                            "title": clean_title or title,
+                            "id": href.split("/")[-2],
+                            "link": href
+                        })
+                
+                if anime_in_day:
+                    schedule.append({"day": day_name, "anime": anime_in_day})
         
         return schedule
 

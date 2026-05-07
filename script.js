@@ -36,6 +36,7 @@ async function fetchOngoing() {
         renderAnime(data, ongoingGrid);
     } catch (error) {
         console.error("Error fetching ongoing:", error);
+        if (ongoingGrid) ongoingGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat anime terbaru. Pastikan backend jalan.</p>';
     }
     showLoader(false);
 }
@@ -91,6 +92,7 @@ function renderAnime(list, container) {
             </div>
         `;
         card.onclick = () => {
+            console.log("Navigating to anime:", anime.id);
             window.location.href = `watch.html?id=${anime.id}`;
         };
         container.appendChild(card);
@@ -281,7 +283,10 @@ async function fetchSchedule() {
         const response = await fetch(`${API_BASE}/schedule`);
         const data = await response.json();
         renderSchedule(data, scheduleContainer);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e); 
+        if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. Pastikan backend jalan.</p>';
+    }
     showLoader(false);
 }
 

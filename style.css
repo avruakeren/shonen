@@ -47,9 +47,16 @@ main#app {
     margin-left: 80px;
     padding: 2rem 5%;
     min-height: 100vh;
-    position: relative;
-    z-index: 1;
     transition: all 0.3s;
+}
+
+.view {
+    display: none;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.view.active {
+    display: block;
 }
 
 /* --- SIDE NAVIGATION --- */
