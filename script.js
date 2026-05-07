@@ -32,7 +32,20 @@ async function fetchOngoing() {
     showLoader(true);
     try {
         const response = await fetch(`${API_BASE}/ongoing`);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
+        
+        if (data.length === 0) {
+            ongoingGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                    <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
+                    <p style="color: #94a3b8;">Situs sumber (Otakudesu) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
+                </div>
+            `;
+            return;
+        }
+        
         renderAnime(data, ongoingGrid);
     } catch (error) {
         console.error("Error fetching ongoing:", error);
@@ -299,6 +312,12 @@ function renderFavorites() {
 handleRoute();
 fetchOngoing();
 fetchMalData();
+
+// Debug: Check API connectivity
+fetch(`${API_BASE}/test`)
+    .then(r => r.json())
+    .then(d => console.log("API Status:", d))
+    .catch(e => console.error("API Test Failed:", e));
 
 // Interactive Glow Background with Smoothing
 let mouseX = 0, mouseY = 0;

@@ -7,6 +7,10 @@ app = Flask(__name__)
 CORS(app)
 scraper = OtakudesuScraper()
 
+@app.route("/api/test")
+def test_api():
+    return jsonify({"status": "ok", "message": "API is reachable"})
+
 @app.route("/")
 def index():
     return send_from_directory('.', 'index.html')

@@ -5,7 +5,7 @@ import base64
 import re
 
 class OtakudesuScraper:
-    BASE_URL = "https://otakudesu.cloud"
+    BASE_URL = "https://otakudesu.fit"
 
     def __init__(self):
         self.headers = {
@@ -15,13 +15,21 @@ class OtakudesuScraper:
 
     def _get_soup(self, url):
         try:
-            # Added verify=False to handle SSL Handshake errors (525) and increased timeout
-            response = requests.get(url, headers=self.headers, timeout=20, verify=False)
-            print(f"DEBUG: Fetched {url} - Status: {response.status_code} - Length: {len(response.content)}")
+            # Reverting to verify=True but with a more modern User-Agent
+            # If it still fails with 525, we will try verify=False as a fallback
+            response = requests.get(url, headers=self.headers, timeout=15)
+            print(f"DEBUG: Fetched {url} - Status: {response.status_code}")
             response.raise_for_status()
             return BeautifulSoup(response.content, "html.parser")
         except Exception as e:
             print(f"Error fetching {url}: {e}")
+            # Try fallback with verify=False if it was an SSL error
+            if "SSL" in str(e) or "handshake" in str(e) or "525" in str(e):
+                try:
+                    print(f"DEBUG: SSL Error detected, retrying {url} with verify=False")
+                    response = requests.get(url, headers=self.headers, timeout=15, verify=False)
+                    return BeautifulSoup(response.content, "html.parser")
+                except: pass
             return None
 
     def get_ongoing(self, page=1):
