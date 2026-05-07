@@ -5,17 +5,18 @@ import base64
 import re
 
 class OtakudesuScraper:
-    BASE_URL = "https://otakudesu.fit"
+    BASE_URL = "https://otakudesu.cloud"
 
     def __init__(self):
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer": self.BASE_URL
         }
 
     def _get_soup(self, url):
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            # Added verify=False to handle SSL Handshake errors (525) and increased timeout
+            response = requests.get(url, headers=self.headers, timeout=20, verify=False)
             print(f"DEBUG: Fetched {url} - Status: {response.status_code} - Length: {len(response.content)}")
             response.raise_for_status()
             return BeautifulSoup(response.content, "html.parser")

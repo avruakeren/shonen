@@ -29,12 +29,26 @@ async function initWatch() {
             renderDetails(data);
             // Autoplay first episode if needed or just wait for click
         } else {
-            alert("Could not load anime details.");
-            window.location.href = 'index.html';
+            detailContainer.innerHTML = `
+                <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
+                    <i class="fas fa-search" style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Anime Tidak Ditemukan</h3>
+                    <p style="color: #94a3b8; margin-bottom: 25px;">Data untuk anime ini tidak tersedia atau link sudah kadaluarsa.</p>
+                    <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Kembali ke Beranda</button>
+                </div>
+            `;
         }
     } catch (error) {
         console.error("Error fetching details:", error);
-        alert("Error connecting to server.");
+        detailContainer.innerHTML = `
+            <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
+                <h3 style="color: #fff; margin-bottom: 10px;">Gagal Menghubungkan ke Server</h3>
+                <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba ganti ke domain lain di scraper.py.</p>
+                <button onclick="window.location.reload()" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Coba Lagi</button>
+                <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: #94a3b8; cursor: pointer; margin-left: 10px;">Kembali</button>
+            </div>
+        `;
     } finally {
         showLoader(false);
     }
