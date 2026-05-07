@@ -309,15 +309,24 @@ function renderFavorites() {
 }
 
 // Initial load
-handleRoute();
-fetchOngoing();
-fetchMalData();
+async function initApp() {
+    handleRoute();
+    
+    // Parallelize core fetches for speed
+    try {
+        await Promise.all([
+            fetchOngoing(),
+            fetchMalData()
+        ]);
+    } catch (e) {
+        console.error("Initialization error:", e);
+    }
 
-// Debug: Check API connectivity
-fetch(`${API_BASE}/test`)
-    .then(r => r.json())
-    .then(d => console.log("API Status:", d))
-    .catch(e => console.error("API Test Failed:", e));
+    // Check API connectivity in background
+    fetch(`${API_BASE}/test`).then(r => r.json()).catch(() => {});
+}
+
+initApp();
 
 // Interactive Glow Background with Smoothing
 let mouseX = 0, mouseY = 0;
