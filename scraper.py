@@ -280,12 +280,15 @@ class OtakudesuScraper:
             mvelements = [soup]
 
         for q_idx, mvel in enumerate(mvelements):
-            # Determine quality label from any text near the block, or use indexed label
-            quality = quality_labels[q_idx] if q_idx < len(quality_labels) else f"Q{q_idx+1}"
             # Try to detect quality from heading/label text in this block
+            block_quality = ""
             label_el = mvel.select_one(".quality-label, .res-label, [class*='quality'], [class*='res']")
             if label_el:
-                quality = label_el.text.strip() or quality
+                block_quality = label_el.text.strip()
+            
+            # If not found in label_el, use index as fallback
+            if not block_quality:
+                block_quality = quality_labels[q_idx] if q_idx < len(quality_labels) else f"Q{q_idx+1}"
 
             mirrors_in_block = []
             for opt in mvel.select("select.mirror option"):
@@ -293,6 +296,16 @@ class OtakudesuScraper:
                 if not val:
                     continue
                 label = opt.text.strip()
+                
+                # IMPORTANT: Check if the label contains quality (e.g., "Gdrive - 720p")
+                # If so, we might need to override the block_quality
+                current_quality = block_quality
+                res_match = re.search(r'(\d{3,4}p)', label)
+                if res_match:
+                    current_quality = res_match.group(1)
+                    # Clean the label to remove quality info for cleaner UI
+                    label = label.replace(current_quality, "").replace("-", "").strip()
+
                 server_idx = opt.get("data-index", str(len(mirrors_in_block) + 1))
                 try:
                     decoded_html = base64.b64decode(val).decode("utf-8")
@@ -303,27 +316,20 @@ class OtakudesuScraper:
                     iframe_src = ""
 
                 if iframe_src:
-                    mirrors_in_block.append({
+                    # Check if this quality already exists in streams
+                    existing_stream = next((s for s in streams if s["quality"] == current_quality), None)
+                    mirror_data = {
                         "name": label or f"Server {server_idx}",
                         "url": iframe_src
-                    })
-
-            # Fallback: if no mirror options found, use the default iframe already in #pembed
-            if not mirrors_in_block:
-                iframe = mvel.select_one("#pembed iframe") or mvel.select_one(".player-embed iframe")
-                if not iframe:
-                    iframe = mvel.select_one("iframe")
-                if iframe and iframe.has_attr("src"):
-                    mirrors_in_block.append({
-                        "name": "Server 1",
-                        "url": iframe["src"]
-                    })
-
-            if mirrors_in_block:
-                streams.append({
-                    "quality": quality,
-                    "mirrors": mirrors_in_block
-                })
+                    }
+                    
+                    if existing_stream:
+                        existing_stream["mirrors"].append(mirror_data)
+                    else:
+                        streams.append({
+                            "quality": current_quality,
+                            "mirrors": [mirror_data]
+                        })
 
         # If we got nothing from mvelements, use the first iframe on the page
         if not streams:

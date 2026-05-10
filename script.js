@@ -34,7 +34,7 @@ async function fetchOngoing() {
         const response = await fetch(`${API_BASE}/ongoing`);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
-        
+
         if (data.length === 0) {
             ongoingGrid.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
@@ -45,7 +45,7 @@ async function fetchOngoing() {
             `;
             return;
         }
-        
+
         renderAnime(data, ongoingGrid);
     } catch (error) {
         console.error("Error fetching ongoing:", error);
@@ -56,17 +56,17 @@ async function fetchOngoing() {
 
 async function searchAnime(query) {
     if (!query) return;
-    
+
     showLoader(true);
     showView('search');
     const queryDisplay = document.getElementById('searchQueryText');
     const grid = document.getElementById('searchGrid');
-    
+
     if (queryDisplay) queryDisplay.innerText = query;
     if (grid) grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">Searching for "' + query + '"...</p>';
-    
-    if (searchOverlay) searchOverlay.style.display = 'none'; 
-    
+
+    if (searchOverlay) searchOverlay.style.display = 'none';
+
     try {
         console.log("Searching for:", query);
         const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
@@ -116,7 +116,6 @@ function renderAnime(list, container) {
 // Consolidated MyAnimeList Logic
 async function fetchMalData() {
     try {
-        // Fetch Seasonal with cache check or delay to avoid 429
         const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
         const seasonalData = await seasonalRes.json();
 
@@ -183,7 +182,7 @@ function renderSchedule(data, container) {
         dayDiv.style.borderRadius = '20px';
         dayDiv.style.border = isToday ? '2px solid var(--primary)' : '1px solid var(--glass-border)';
         dayDiv.style.background = isToday ? 'rgba(99, 102, 241, 0.1)' : 'var(--glass)';
-        
+
         dayDiv.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                 <h3 style="color: ${isToday ? 'var(--primary)' : 'white'}; font-size: 1.2rem; font-weight: 800;">
@@ -254,7 +253,7 @@ if (closeSearch) closeSearch.onclick = closeSearchUI;
 // Routing
 function handleRoute() {
     const hash = window.location.hash || '#/';
-    
+
     if (hash.startsWith('#/search')) {
         const params = new URLSearchParams(hash.split('?')[1]);
         const q = params.get('q');
@@ -296,8 +295,8 @@ async function fetchSchedule() {
         const response = await fetch(`${API_BASE}/schedule`);
         const data = await response.json();
         renderSchedule(data, scheduleContainer);
-    } catch (e) { 
-        console.error(e); 
+    } catch (e) {
+        console.error(e);
         if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. Pastikan backend jalan.</p>';
     }
     showLoader(false);
@@ -311,7 +310,7 @@ function renderFavorites() {
 // Initial load
 async function initApp() {
     handleRoute();
-    
+
     // Parallelize core fetches for speed
     try {
         await Promise.all([
@@ -323,7 +322,7 @@ async function initApp() {
     }
 
     // Check API connectivity in background
-    fetch(`${API_BASE}/test`).then(r => r.json()).catch(() => {});
+    fetch(`${API_BASE}/test`).then(r => r.json()).catch(() => { });
 }
 
 initApp();
@@ -341,7 +340,7 @@ function animateGlow() {
     const lerp = 0.1; // Kelembutan pergerakan
     glowX += (mouseX - glowX) * lerp;
     glowY += (mouseY - glowY) * lerp;
-    
+
     if (glow) {
         glow.style.left = `${glowX}px`;
         glow.style.top = `${glowY}px`;
