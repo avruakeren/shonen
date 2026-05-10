@@ -67,10 +67,10 @@ function renderDetails(anime) {
                         <img src="${anime.thumb}" alt="${anime.title}">
                     </div>
                     <div class="stats-grid">
-                        ${Object.entries(anime.info).map(([k, v]) => `
-                            <div class="stat-item">
+                        ${Object.entries(anime.info).map(([k, v], idx) => `
+                            <div class="stat-item" style="animation-delay: ${idx * 0.05}s">
                                 <span class="stat-label">${k.replace(/_/g, ' ')}</span>
-                                <p class="stat-value">${v}</p>
+                                <p class="stat-value" title="${v}">${v}</p>
                             </div>
                         `).join('')}
                     </div>

@@ -27,21 +27,6 @@ body {
     min-height: 100vh;
 }
 
-/* --- BACKGROUND EFFECTS --- */
-#glow {
-    position: fixed;
-    width: 800px;
-    height: 800px;
-    background: radial-gradient(circle, var(--primary-glow) 0%, rgba(99, 102, 241, 0.05) 30%, rgba(11, 15, 25, 0) 70%);
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    z-index: 0;
-    transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
-    filter: blur(80px);
-    opacity: 0.6;
-}
-
 /* --- LAYOUT STRUCTURE --- */
 main#app {
     margin-left: 80px;
@@ -224,6 +209,7 @@ main#app {
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -595,13 +581,15 @@ main#app {
 
     .detail-left {
         display: grid;
-        grid-template-columns: 200px 1fr;
-        gap: 30px;
+        grid-template-columns: 240px 1fr;
+        gap: 25px;
+        align-items: center;
     }
 
     .poster-wrapper img {
         width: 100%;
         height: auto;
+        margin-bottom: 0;
     }
 }
 
@@ -663,31 +651,71 @@ main#app {
     }
 
     .detail-grid {
-        gap: 20px;
+        gap: 15px;
     }
 
     .detail-left {
         grid-template-columns: 1fr;
-        text-align: center;
-        padding: 15px;
+        text-align: left;
+        padding: 20px;
+        border-radius: 28px;
     }
 
     .poster-wrapper {
-        max-width: 200px;
-        margin: 0 auto 15px;
+        max-width: 160px;
+        margin: 0 auto 25px;
+        position: relative;
+    }
+
+    .poster-wrapper::after {
+        content: '';
+        position: absolute;
+        inset: -5px;
+        background: var(--primary);
+        filter: blur(15px);
+        opacity: 0.2;
+        z-index: -1;
+        border-radius: 20px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 15px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .stat-label {
+        font-size: 0.6rem;
+        opacity: 0.6;
+    }
+
+    .stat-value {
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .anime-title {
-        font-size: 1.6rem !important;
-        text-align: center;
-        width: 100%;
+        font-size: 1.8rem !important;
+        text-align: left;
     }
 
     .detail-header {
-        flex-direction: column;
-        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        text-align: left;
         gap: 15px;
-        text-align: center;
     }
 
     .fav-btn {
@@ -697,14 +725,16 @@ main#app {
     }
 
     .badge-container {
-        justify-content: center;
+        justify-content: flex-start;
         margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .synopsis-text {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         line-height: 1.6;
-        text-align: justify;
+        text-align: left;
     }
 
     .player-wrapper {
@@ -752,6 +782,25 @@ main#app {
 .stats-grid {
     display: grid;
     gap: 12px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: statAppear 0.5s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes statAppear {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .stat-label {
