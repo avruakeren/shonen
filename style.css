@@ -835,10 +835,9 @@ main#app {
         padding: 20px;
         border-radius: 28px;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         gap: 20px;
-        flex-direction: row;
     }
 
     .poster-wrapper {
