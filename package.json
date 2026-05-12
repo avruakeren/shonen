@@ -1,0 +1,13 @@
+{
+  "name": "shonen",
+  "version": "1.0.0",
+  "description": "Shonen Anime Streaming Platform",
+  "main": "app.py",
+  "scripts": {
+    "dev": "py app.py",
+    "start": "py app.py"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
