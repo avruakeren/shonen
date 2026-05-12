@@ -1,13 +1,13 @@
 const CACHE_NAME = 'shonen-v3';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/watch.html',
-  '/style.css',
-  '/script.js',
-  '/watch.js',
-  '/manifest.json',
-  '/icon.png'
+  './',
+  './index.html',
+  './watch.html',
+  './style.css',
+  './script.js',
+  './watch.js',
+  './manifest.json',
+  './icon.png'
 ];
 
 self.addEventListener('install', event => {
@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   // Network-first with cache fallback for HTML, Cache-first for others
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
+      fetch(event.request).catch(() => caches.match('./index.html'))
     );
     return;
   }

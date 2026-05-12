@@ -1,12 +1,13 @@
 {
   "name": "Shonen Anime",
   "short_name": "Shonen",
-  "id": "/?source=pwa",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "id": "/",
+  "start_url": "./?utm_source=pwa",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
-  "background_color": "#0f172a",
+  "background_color": "#0B0F19",
   "theme_color": "#6366f1",
   "description": "Watch Anime Ads Free with Premium Experience",
   "icons": [
@@ -38,6 +39,8 @@
   "categories": [
     "entertainment",
     "video"
-  ]
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }
 
