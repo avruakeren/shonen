@@ -835,12 +835,14 @@ main#app {
         border-radius: 28px;
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 20px;
     }
 
     .poster-wrapper {
-        max-width: 160px;
-        margin: 0 auto 25px;
+        max-width: 200px;
+        width: 100%;
+        margin: 0 auto 10px;
         position: relative;
     }
 
@@ -862,6 +864,7 @@ main#app {
         padding: 15px;
         border-radius: 18px;
         border: 1px solid rgba(255, 255, 255, 0.03);
+        width: 100%;
     }
 
     .stat-item {
