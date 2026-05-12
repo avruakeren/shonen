@@ -7,6 +7,8 @@ const libraryGrid = document.getElementById('libraryGrid');
 const favoritesGrid = document.getElementById('favoritesGrid');
 const scheduleContainer = document.getElementById('scheduleContainer');
 const loader = document.getElementById('loader');
+let libraryPage = 1;
+
 
 // Views
 const views = {
@@ -84,10 +86,11 @@ async function searchAnime(query) {
 let currentAnimeId = null;
 let currentEpisodes = [];
 
-function renderAnime(list, container) {
+function renderAnime(list, container, append = false) {
     if (!container) return;
-    container.innerHTML = '';
-    if (list.length === 0) {
+    if (!append) container.innerHTML = '';
+    
+    if (list.length === 0 && !append) {
         container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No anime found.</p>';
         return;
     }
@@ -260,7 +263,8 @@ function handleRoute() {
         if (q) searchAnime(q);
     } else if (hash === '#/library') {
         showView('library');
-        fetchLibrary();
+        libraryPage = 1;
+        fetchLibrary(1, false);
     } else if (hash === '#/schedule') {
         showView('schedule');
         fetchSchedule();
@@ -279,14 +283,34 @@ function handleRoute() {
 
 window.addEventListener('hashchange', handleRoute);
 
-async function fetchLibrary() {
+async function fetchLibrary(page = 1, append = false) {
     showLoader(true);
+    const loadMoreBtn = document.getElementById('loadMoreLibrary');
+    if (loadMoreBtn) loadMoreBtn.disabled = true;
+
     try {
-        const response = await fetch(`${API_BASE}/movies`);
+        const response = await fetch(`${API_BASE}/movies?page=${page}`);
         const data = await response.json();
-        renderAnime(data, libraryGrid);
-    } catch (e) { console.error(e); }
-    showLoader(false);
+        
+        if (data.length > 0) {
+            renderAnime(data, libraryGrid, append);
+            libraryPage = page;
+        } else {
+            if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+        }
+    } catch (e) { 
+        console.error(e); 
+    } finally {
+        showLoader(false);
+        if (loadMoreBtn) loadMoreBtn.disabled = false;
+    }
+}
+
+const loadMoreLibrary = document.getElementById('loadMoreLibrary');
+if (loadMoreLibrary) {
+    loadMoreLibrary.onclick = () => {
+        fetchLibrary(libraryPage + 1, true);
+    };
 }
 
 async function fetchSchedule() {
