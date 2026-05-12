@@ -824,7 +824,8 @@ main#app {
         padding: 0;
     }
 
-    .detail-main, .detail-right {
+    .detail-main,
+    .detail-right {
         width: 100%;
     }
 
@@ -837,6 +838,7 @@ main#app {
         flex-direction: column;
         align-items: center;
         gap: 20px;
+        flex-direction: row;
     }
 
     .poster-wrapper {
@@ -966,4 +968,3 @@ main#app {
         padding: 15px;
     }
 }
-
