@@ -5,7 +5,7 @@ import base64
 import re
 
 class OtakudesuScraper:
-    BASE_URL = "https://otakudesu.fit"
+    BASE_URL = "http://otakudesu.blog"
 
     def __init__(self):
         self.headers = {
@@ -130,12 +130,18 @@ class OtakudesuScraper:
         print(f"DEBUG: get_details called for {anime_id}")
         # If it looks like an episode link, try to resolve it to a series link
         if "-episode-" in anime_id or "-eps-" in anime_id:
-            ep_url = f"{self.BASE_URL}/{anime_id}/"
+            ep_url = None
+            for path in [f"episode/{anime_id}", anime_id]:
+                test_url = f"{self.BASE_URL}/{path}/"
+                test_soup = self._get_soup(test_url)
+                if test_soup:
+                    ep_url = test_url
+                    soup = test_soup
+                    break
             print(f"DEBUG: Resolving episode link {ep_url}")
-            soup = self._get_soup(ep_url)
             if soup:
                 # Find the series link - usually in the breadcrumb or a specific link
-                series_link = soup.find("a", href=lambda x: x and "/series/" in x)
+                series_link = soup.find("a", href=lambda x: x and ("/series/" in x or "/anime/" in x))
                 if series_link:
                     anime_id = series_link["href"].split("/")[-2]
                     print(f"DEBUG: Resolved to series ID {anime_id}")
@@ -174,14 +180,21 @@ class OtakudesuScraper:
         
         # Synopsis
         synopsis = ""
-        sinop_div = soup.select_one(".sinop") or soup.select_one(".entry-content") or soup.select_one(".mindesc")
+        sinop_div = soup.select_one(".sinopc") or soup.select_one(".sinop") or soup.select_one(".entry-content") or soup.select_one(".mindesc")
         if sinop_div:
             synopsis = sinop_div.text.strip()
 
         # Episode List
         episodes = []
         # Themes vary: .episodelist or .eplister
-        ep_container = soup.select_one(".episodelist") or soup.select_one(".eplister")
+        # .blog has multiple .episodelist blocks; pick the one with actual episode <li> entries
+        ep_container = None
+        for container in soup.select(".episodelist"):
+            if container.find_all("li"):
+                ep_container = container
+                break
+        if not ep_container:
+            ep_container = soup.select_one(".eplister")
         if ep_container:
             for li in ep_container.find_all("li"):
                 a = li.find("a")
@@ -213,11 +226,33 @@ class OtakudesuScraper:
         if not soup: return []
 
         schedule = []
-        # Try different container patterns
+        # New otakudesu.blog structure: .kgjdwl321 > .kglist321 with h2 for day
+        day_containers = soup.select(".kgjdwl321 > .kglist321")
+        if day_containers:
+            for container in day_containers:
+                day_el = container.select_one("h2")
+                if not day_el:
+                    continue
+                day_name = day_el.text.strip()
+                anime_in_day = []
+                for a in container.select("ul li a"):
+                    href = a.get("href", "")
+                    title = a.text.strip()
+                    if title and href:
+                        anime_id = href.split("/")[-2] if href.endswith("/") else href.split("/")[-1]
+                        anime_in_day.append({
+                            "title": title,
+                            "id": anime_id,
+                            "link": href
+                        })
+                if anime_in_day:
+                    schedule.append({"day": day_name, "anime": anime_in_day})
+            return schedule
+
+        # Fallback: original .fit structure
         day_containers = soup.select(".bixbox.schedulepage")
         
         if not day_containers:
-            # Fallback: Find days by h3 tags and collect next until next h3
             for h3 in soup.find_all("h3"):
                 day_name = h3.text.strip()
                 if day_name.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu", "minggu"]:
@@ -260,106 +295,112 @@ class OtakudesuScraper:
         
         return schedule
 
+    def _resolve_desustream(self, desustream_url):
+        """Resolve desustream.info URL to direct Google Blogger video URL via mode=json"""
+        if not desustream_url:
+            return ""
+        if "desustream.info" not in desustream_url:
+            return desustream_url
+        try:
+            json_url = f"{desustream_url}&mode=json"
+            resp = requests.get(json_url, headers=self.headers, timeout=10)
+            if resp.ok:
+                data = resp.json()
+                video_url = data.get("video", "")
+                if video_url:
+                    print(f"DEBUG: Resolved desustream to direct URL")
+                    return video_url
+        except Exception as e:
+            print(f"Error resolving desustream URL: {e}")
+        return desustream_url
+
     def get_stream(self, episode_id):
         print(f"DEBUG: get_stream called for {episode_id}")
-        url = f"{self.BASE_URL}/{episode_id}/"
-        soup = self._get_soup(url)
+        soup = None
+        for path in [f"episode/{episode_id}", episode_id]:
+            url = f"{self.BASE_URL}/{path}/"
+            soup = self._get_soup(url)
+            if soup:
+                print(f"DEBUG: Found stream page at {url}")
+                break
         if not soup: return None
 
-        # --- Streaming Mirrors ---
-        # New Otakudesu uses select.mirror with Base64-encoded iframe HTML as option values.
-        # Each option represents one streaming server.
-        # Quality tabs (360p/480p/720p) appear as separate .mvelement blocks inside .megavid.
         streams = []
-        quality_labels = ["360p", "480p", "720p", "1080p", "480p", "360p"]
 
-        # Each .mvelement block = one quality level
-        mvelements = soup.select(".megavid .mvelement")
-        if not mvelements:
-            # Fallback: treat the whole page as one quality group
-            mvelements = [soup]
+        # New otakudesu.blog structure: .mirrorstream ul.m360p, ul.m480p, ul.m720p
+        mirror_groups = soup.select(".mirrorstream ul[class^='m']")
+        if mirror_groups:
+            main_iframe = soup.select_one(".responsive-embed-stream iframe") or soup.select_one("#embed_holder iframe")
+            desustream_url = main_iframe["src"] if main_iframe and main_iframe.has_attr("src") else ""
+            direct_url = self._resolve_desustream(desustream_url)
 
-        for q_idx, mvel in enumerate(mvelements):
-            # Try to detect quality from heading/label text in this block
-            block_quality = ""
-            label_el = mvel.select_one(".quality-label, .res-label, [class*='quality'], [class*='res']")
-            if label_el:
-                block_quality = label_el.text.strip()
-            
-            # If not found in label_el, use index as fallback
-            if not block_quality:
-                block_quality = quality_labels[q_idx] if q_idx < len(quality_labels) else f"Q{q_idx+1}"
+            for group in mirror_groups:
+                classes = group.get("class", [])
+                quality = "480p"
+                for cls in classes:
+                    if cls.startswith("m") and len(cls) > 1:
+                        quality = cls[1:]
+                        break
+                mirrors = []
+                for a in group.select("li a"):
+                    name = a.text.strip()
+                    if name:
+                        mirrors.append({"name": name, "url": direct_url})
+                if mirrors:
+                    streams.append({"quality": quality, "mirrors": mirrors})
 
-            mirrors_in_block = []
-            for opt in mvel.select("select.mirror option"):
-                val = opt.get("value", "").strip()
-                if not val:
-                    continue
-                label = opt.text.strip()
-                
-                # IMPORTANT: Check if the label contains quality (e.g., "Gdrive - 720p")
-                # If so, we might need to override the block_quality
-                current_quality = block_quality
-                res_match = re.search(r'(\d{3,4}p)', label)
-                if res_match:
-                    current_quality = res_match.group(1)
-                    # Clean the label to remove quality info for cleaner UI
-                    label = label.replace(current_quality, "").replace("-", "").strip()
+        # If no mirror groups found, try the old select.mirror structure
+        if not streams:
+            quality_labels = ["360p", "480p", "720p", "1080p", "480p", "360p"]
+            mvelements = soup.select(".megavid .mvelement")
+            if not mvelements:
+                mvelements = [soup]
 
-                server_idx = opt.get("data-index", str(len(mirrors_in_block) + 1))
-                try:
-                    decoded_html = base64.b64decode(val).decode("utf-8")
-                    tmp = BeautifulSoup(decoded_html, "html.parser")
-                    iframe = tmp.find("iframe")
-                    iframe_src = iframe["src"] if iframe and iframe.has_attr("src") else ""
-                except Exception:
-                    iframe_src = ""
+            for q_idx, mvel in enumerate(mvelements):
+                block_quality = ""
+                label_el = mvel.select_one(".quality-label, .res-label, [class*='quality'], [class*='res']")
+                if label_el:
+                    block_quality = label_el.text.strip()
+                if not block_quality:
+                    block_quality = quality_labels[q_idx] if q_idx < len(quality_labels) else f"Q{q_idx+1}"
 
-                if iframe_src:
-                    # Check if this quality already exists in streams
-                    existing_stream = next((s for s in streams if s["quality"] == current_quality), None)
-                    mirror_data = {
-                        "name": label or f"Server {server_idx}",
-                        "url": iframe_src
-                    }
-                    
-                    if existing_stream:
-                        existing_stream["mirrors"].append(mirror_data)
-                    else:
-                        streams.append({
-                            "quality": current_quality,
-                            "mirrors": [mirror_data]
-                        })
+                for opt in mvel.select("select.mirror option"):
+                    val = opt.get("value", "").strip()
+                    if not val:
+                        continue
+                    label = opt.text.strip()
+                    current_quality = block_quality
+                    res_match = re.search(r'(\d{3,4}p)', label)
+                    if res_match:
+                        current_quality = res_match.group(1)
+                        label = label.replace(current_quality, "").replace("-", "").strip()
+                    server_idx = opt.get("data-index", "1")
+                    try:
+                        decoded_html = base64.b64decode(val).decode("utf-8")
+                        tmp = BeautifulSoup(decoded_html, "html.parser")
+                        iframe = tmp.find("iframe")
+                        iframe_src = iframe["src"] if iframe and iframe.has_attr("src") else ""
+                        iframe_src = self._resolve_desustream(iframe_src)
+                    except Exception:
+                        iframe_src = ""
 
-        # If we got nothing from mvelements, use the first iframe on the page
+                    if iframe_src:
+                        existing_stream = next((s for s in streams if s["quality"] == current_quality), None)
+                        mirror_data = {"name": label or f"Server {server_idx}", "url": iframe_src}
+                        if existing_stream:
+                            existing_stream["mirrors"].append(mirror_data)
+                        else:
+                            streams.append({"quality": current_quality, "mirrors": [mirror_data]})
+
+        # Ultimate fallback: grab first iframe on the page
         if not streams:
             iframe = soup.select_one("iframe")
             if iframe and iframe.has_attr("src"):
-                streams.append({
-                    "quality": "360p",
-                    "mirrors": [{"name": "Server 1", "url": iframe["src"]}]
-                })
+                url = self._resolve_desustream(iframe["src"])
+                streams.append({"quality": "480p", "mirrors": [{"name": "Server 1", "url": url}]})
 
         # --- Download Links ---
         downloads = []
-
-        # NEW structure: look for external download anchor links (GoFile, Mega, GDrive, etc.)
-        download_patterns = re.compile(
-            r'gofile\.io|mega\.nz|drive\.google|1drv\.ms|mediafire|zippyshare|pixeldrain|acefile|solidfiles',
-            re.IGNORECASE
-        )
-        seen_urls = set()
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if download_patterns.search(href) and href not in seen_urls:
-                seen_urls.add(href)
-                link_text = a.get_text(strip=True) or "Download"
-                downloads.append({
-                    "resolution": "Download",
-                    "links": [{"name": link_text, "url": href}]
-                })
-
-        # OLD structure fallback: .download li with strong tags
         dl_container = soup.select_one(".download")
         if dl_container:
             for li in dl_container.select("li"):
@@ -374,10 +415,7 @@ class OtakudesuScraper:
                 if links:
                     downloads.append({"resolution": res, "links": links})
 
-        return {
-            "streams": streams,
-            "downloads": downloads
-        }
+        return {"streams": streams, "downloads": downloads}
 
 
 if __name__ == "__main__":

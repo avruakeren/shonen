@@ -48,12 +48,118 @@ async function fetchOngoing() {
             return;
         }
 
+        renderHeroCarousel(data.slice(0, 5));
         renderAnime(data, ongoingGrid);
     } catch (error) {
         console.error("Error fetching ongoing:", error);
         if (ongoingGrid) ongoingGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat anime terbaru. Pastikan backend jalan.</p>';
     }
     showLoader(false);
+}
+
+/* --- HERO CAROUSEL --- */
+let heroIndex = 0;
+let heroTimer = null;
+
+function renderHeroCarousel(items) {
+    const track = document.getElementById('heroTrack');
+    const dotsContainer = document.getElementById('heroDots');
+    if (!track) return;
+
+    heroIndex = 0;
+
+    // Skeleton loader
+    track.innerHTML = `
+        <div class="hero-skeleton">
+            <div class="hero-skel-block">
+                <div class="skel skel-badge"></div>
+                <div class="skel skel-title"></div>
+                <div class="skel skel-synopsis"></div>
+                <div class="skel skel-synopsis short"></div>
+                <div class="skel skel-btn"></div>
+            </div>
+        </div>
+    `;
+
+    // Fetch details in parallel for enriched data
+    Promise.all(items.map(item =>
+        fetch(`${API_BASE}/details/${item.id}`)
+            .then(r => r.json())
+            .catch(() => null)
+    )).then(details => {
+        let slidesHtml = '';
+        items.forEach((item, i) => {
+            const detail = details[i] || {};
+            const score = detail?.info?.skor || '';
+            const synopsis = detail?.synopsis || '';
+            const thumb = detail?.thumb || item.thumb;
+
+            slidesHtml += `
+                <div class="hero-slide">
+                    <div class="hero-bg" style="background-image: url('${thumb}')"></div>
+                    <div class="hero-content">
+                        ${score ? `<div class="hero-score"><i class="fas fa-star"></i> ${score}</div>` : ''}
+                        <h2 class="hero-title">${item.title}</h2>
+                        ${synopsis ? `<p class="hero-synopsis">${synopsis}</p>` : ''}
+                        <a href="watch.html?id=${item.id}" class="hero-btn">
+                            <i class="fas fa-play"></i> Watch Now
+                        </a>
+                    </div>
+                </div>
+            `;
+        });
+
+        track.innerHTML = slidesHtml;
+
+        // Dots
+        if (dotsContainer) {
+            dotsContainer.innerHTML = items.map((_, i) =>
+                `<button class="hero-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></button>`
+            ).join('');
+        }
+
+        setupHeroNav(items.length);
+    });
+}
+
+function setupHeroNav(total) {
+    const track = document.getElementById('heroTrack');
+    const prev = document.getElementById('heroPrev');
+    const next = document.getElementById('heroNext');
+
+    if (!track || total < 1) return;
+
+    function goTo(index) {
+        if (index < 0) index = total - 1;
+        if (index >= total) index = 0;
+        heroIndex = index;
+        track.style.transform = `translateX(-${index * 100}%)`;
+
+        document.querySelectorAll('.hero-dot').forEach(dot => {
+            dot.classList.toggle('active', parseInt(dot.dataset.index) === index);
+        });
+
+        resetAutoSlide();
+    }
+
+    function nextSlide() { goTo(heroIndex + 1); }
+    function prevSlide() { goTo(heroIndex - 1); }
+
+    if (prev) prev.onclick = prevSlide;
+    if (next) next.onclick = nextSlide;
+
+    document.querySelectorAll('.hero-dot').forEach(dot => {
+        dot.onclick = () => goTo(parseInt(dot.dataset.index));
+    });
+
+    function resetAutoSlide() {
+        clearInterval(heroTimer);
+        if (total > 1) {
+            heroTimer = setInterval(nextSlide, 6000);
+        }
+    }
+
+    resetAutoSlide();
 }
 
 async function searchAnime(query) {
@@ -163,8 +269,18 @@ function renderMalAnime(list, containerId) {
                 <h3>${title}</h3>
             </div>
         `;
-        card.onclick = () => {
-            window.location.hash = `#/search?q=${encodeURIComponent(title)}`;
+        card.onclick = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(title)}`);
+                const data = await res.json();
+                if (data?.length > 0) {
+                    window.location.href = `watch.html?id=${data[0].id}`;
+                } else {
+                    window.location.hash = `#/search?q=${encodeURIComponent(title)}`;
+                }
+            } catch {
+                window.location.hash = `#/search?q=${encodeURIComponent(title)}`;
+            }
         };
         container.appendChild(card);
     });
