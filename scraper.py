@@ -1,4 +1,4 @@
-from curl_cffi import requests as curl_requests
+import httpx
 import requests as std_requests
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -13,11 +13,12 @@ class OtakudesuScraper:
 
     def _fetch(self, url, timeout=15):
         try:
-            resp = curl_requests.get(url, impersonate="chrome120", timeout=timeout)
-            resp.raise_for_status()
-            return resp.content
+            with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+                resp = client.get(url, headers=self.HEADERS)
+                resp.raise_for_status()
+                return resp.content
         except Exception as e1:
-            print(f"curl_cffi failed for {url}: {e1}")
+            print(f"httpx failed for {url}: {e1}")
             try:
                 resp = std_requests.get(url, headers=self.HEADERS, timeout=timeout)
                 resp.raise_for_status()
@@ -290,7 +291,8 @@ class OtakudesuScraper:
             return desustream_url
         try:
             json_url = f"{desustream_url}&mode=json"
-            resp = curl_requests.get(json_url, impersonate="chrome120", timeout=10)
+            with httpx.Client(timeout=10, follow_redirects=True) as client:
+                resp = client.get(json_url, headers=self.HEADERS)
             if resp.ok:
                 data = resp.json()
                 video_url = data.get("video", "")
