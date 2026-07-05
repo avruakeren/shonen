@@ -1,17 +1,13 @@
 {
   "version": 2,
   "buildCommand": "python build.py",
-  "functions": {
-    "app.py": {
-      "maxDuration": 30
-    }
-  },
   "builds": [
     {
       "src": "app.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "data/**"
+        "includeFiles": "data/**",
+        "maxDuration": 30
       }
     },
     {
