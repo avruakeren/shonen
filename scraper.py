@@ -1,4 +1,5 @@
-import cloudscraper
+from curl_cffi import requests as curl_requests
+import requests as std_requests
 from bs4 import BeautifulSoup
 import urllib.parse
 import base64
@@ -6,18 +7,30 @@ import re
 
 class OtakudesuScraper:
     DOMAINS = ["otakudesu.blog"]
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
 
-    def __init__(self):
-        self.scraper = cloudscraper.create_scraper()
+    def _fetch(self, url, timeout=15):
+        try:
+            resp = curl_requests.get(url, impersonate="chrome120", timeout=timeout)
+            resp.raise_for_status()
+            return resp.content
+        except Exception as e1:
+            print(f"curl_cffi failed for {url}: {e1}")
+            try:
+                resp = std_requests.get(url, headers=self.HEADERS, timeout=timeout)
+                resp.raise_for_status()
+                return resp.content
+            except Exception as e2:
+                print(f"requests fallback also failed: {e2}")
+                return None
 
     def _get_soup(self, url):
-        try:
-            response = self.scraper.get(url, timeout=15)
-            response.raise_for_status()
-            return BeautifulSoup(response.content, "lxml")
-        except Exception as e:
-            print(f"Error fetching {url}: {e}")
+        content = self._fetch(url)
+        if content is None:
             return None
+        return BeautifulSoup(content, "lxml")
 
     def _try_on_domains(self, path):
         for domain in self.DOMAINS:
@@ -277,7 +290,7 @@ class OtakudesuScraper:
             return desustream_url
         try:
             json_url = f"{desustream_url}&mode=json"
-            resp = self.scraper.get(json_url, timeout=10)
+            resp = curl_requests.get(json_url, impersonate="chrome120", timeout=10)
             if resp.ok:
                 data = resp.json()
                 video_url = data.get("video", "")
@@ -285,6 +298,17 @@ class OtakudesuScraper:
                     print(f"DEBUG: Resolved desustream to direct URL")
                     return video_url
         except Exception as e:
+            try:
+                json_url = f"{desustream_url}&mode=json"
+                resp = std_requests.get(json_url, headers=self.HEADERS, timeout=10)
+                if resp.ok:
+                    data = resp.json()
+                    video_url = data.get("video", "")
+                    if video_url:
+                        print(f"DEBUG: Resolved desustream via requests fallback")
+                        return video_url
+            except:
+                pass
             print(f"Error resolving desustream URL: {e}")
         return desustream_url
 

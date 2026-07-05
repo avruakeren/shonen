@@ -25,13 +25,10 @@ def _load_data(filename):
     return None
 
 def _scrape_or_error(fn, *args, **kwargs):
-    """Wrapper that catches scraper errors and returns structured response."""
     try:
         result = fn(*args, **kwargs)
         if result is None:
             return jsonify({"error": "No data returned from source", "data": None}), 502
-        if isinstance(result, list) and len(result) == 0:
-            return jsonify({"error": "Source returned empty data", "data": []}), 502
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()

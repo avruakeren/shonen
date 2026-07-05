@@ -1,6 +1,11 @@
 {
   "version": 2,
   "buildCommand": "python build.py",
+  "functions": {
+    "app.py": {
+      "maxDuration": 30
+    }
+  },
   "builds": [
     {
       "src": "app.py",
