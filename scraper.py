@@ -1,4 +1,7 @@
-import cloudscraper
+try:
+    import cloudscraper
+except ImportError:
+    cloudscraper = None
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -9,7 +12,10 @@ class OtakudesuScraper:
     BASE_URL = "https://otakudesu.blog"
 
     def __init__(self):
-        self.cs = cloudscraper.create_scraper()
+        if cloudscraper:
+            self.cs = cloudscraper.create_scraper()
+        else:
+            self.cs = None
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -17,7 +23,11 @@ class OtakudesuScraper:
 
     def _get_soup(self, url):
         try:
-            resp = self.cs.get(url, timeout=15)
+            # Use cloudscraper if available, otherwise fallback to standard requests session
+            if self.cs:
+                resp = self.cs.get(url, timeout=15)
+            else:
+                resp = self.session.get(url, timeout=15)
             resp.raise_for_status()
             return BeautifulSoup(resp.content, "lxml")
         except Exception as e1:
@@ -313,6 +323,25 @@ class OtakudesuScraper:
                 break
         if not soup: return None
 
+        # Detect intermediate redirect page (e.g., "Klik Di Sini" button) and follow it
+        skip_link = soup.select_one("a#skip, a[id='skip']")
+        if not skip_link:
+            # Fallback: look for link containing typical skip text
+            for a in soup.find_all('a'):
+                if a.text and ('klik' in a.text.lower() or 'skip' in a.text.lower()):
+                    skip_link = a
+                    break
+        if skip_link and skip_link.get('href'):
+            redirect_url = skip_link.get('href')
+            if not redirect_url.startswith('http'):
+                redirect_url = f"{self.BASE_URL}/{redirect_url.lstrip('/') }"
+            # Fetch the actual stream page
+            new_soup = self._get_soup(redirect_url)
+            if new_soup:
+                soup = new_soup
+            else:
+                return None
+        
         streams = []
 
         mirror_groups = soup.select(".mirrorstream ul[class^='m']")
