@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "python build.py",
   "builds": [
     {
       "src": "app.py",
@@ -43,7 +44,7 @@
       "src": "/api/(.*)",
       "dest": "app.py",
       "headers": {
-        "Cache-Control": "public, s-maxage=300, max-age=60, stale-while-revalidate=600"
+        "Cache-Control": "public, s-maxage=600, max-age=60, stale-while-revalidate=3600"
       }
     },
     {

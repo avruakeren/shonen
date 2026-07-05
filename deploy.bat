@@ -2,24 +2,31 @@
 echo === Shonen Deploy ===
 echo.
 
-REM Add all changes
+REM Build fresh data
+echo [1/3] Scraping data from otakudesu...
+python build.py
+if %errorlevel% neq 0 (
+    echo WARNING: Build failed, continuing anyway...
+)
+
+REM Commit and push
+echo.
+echo [2/3] Committing changes...
 git add -A
 
-REM Check if there are changes to commit
 git diff --cached --quiet
 if %errorlevel% equ 0 (
-    echo No changes to deploy.
+    echo No changes to commit.
     goto push
 )
 
-REM Commit
 set /p msg="Commit message: "
 if "%msg%"=="" set "msg=Update"
 git commit -m "%msg%"
 
 :push
 echo.
-echo Pushing to origin main...
+echo [3/3] Pushing to origin main...
 git push origin main
 
 if %errorlevel% equ 0 (

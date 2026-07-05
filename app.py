@@ -1,34 +1,26 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from scraper import OtakudesuScraper
-import os
-
-from scraper import OtakudesuScraper
-import os
-import time
+import os, json
 
 app = Flask(__name__)
 CORS(app)
 scraper = OtakudesuScraper()
 
-# Simple Cache System
-cache = {}
-CACHE_TIMEOUT = 1800 # 30 minutes
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
-def get_cached_data(key, scraper_func, *args, **kwargs):
-    now = time.time()
-    if key in cache and (now - cache[key]['timestamp']) < CACHE_TIMEOUT:
-        print(f"DEBUG: Returning cached data for {key}")
-        return cache[key]['data']
-    
-    print(f"DEBUG: Fetching fresh data for {key}")
-    data = scraper_func(*args, **kwargs)
-    if data:
-        cache[key] = {
-            'data': data,
-            'timestamp': now
-        }
-    return data
+def _load_data(filename):
+    path = os.path.join(DATA_DIR, filename)
+    try:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                print(f"Loaded {filename} ({len(data)} items)")
+                return data
+    except Exception as e:
+        print(f"Error loading {path}: {e}")
+    print(f"FALLBACK: scraping {filename}")
+    return None
 
 @app.route("/api/test")
 def test_api():
@@ -49,24 +41,24 @@ def static_proxy(path):
 @app.route("/api/ongoing", methods=["GET"])
 def get_ongoing():
     page = request.args.get('page', 1, type=int)
-    cache_key = f"ongoing_{page}"
-    data = get_cached_data(cache_key, scraper.get_ongoing, page=page)
-    return jsonify(data)
+    if page > 1:
+        return jsonify(scraper.get_ongoing(page=page))
+    data = _load_data('ongoing.json')
+    if data is not None:
+        return jsonify(data)
+    return jsonify(scraper.get_ongoing())
 
 @app.route("/api/movies", methods=["GET"])
 def get_movies():
     page = request.args.get('page', 1, type=int)
-    cache_key = f"movies_{page}"
-    data = get_cached_data(cache_key, scraper.get_movies, page=page)
-    return jsonify(data)
+    return jsonify(scraper.get_movies(page=page))
 
 @app.route("/api/search", methods=["GET"])
 def search():
     query = request.args.get("q", "")
     if not query:
         return jsonify([])
-    data = scraper.search(query)
-    return jsonify(data)
+    return jsonify(scraper.search(query))
 
 @app.route("/api/details/<anime_id>", methods=["GET"])
 def get_details(anime_id):
@@ -84,8 +76,10 @@ def get_stream(episode_id):
 
 @app.route("/api/schedule", methods=["GET"])
 def get_schedule():
-    data = get_cached_data("schedule", scraper.get_schedule)
-    return jsonify(data)
+    data = _load_data('schedule.json')
+    if data is not None:
+        return jsonify(data)
+    return jsonify(scraper.get_schedule())
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5000)
