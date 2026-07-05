@@ -9,7 +9,11 @@ function showLoader(show) {
 }
 
 function slugToTitle(slug) {
-    return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    let clean = slug.replace(/-/g, ' ');
+    clean = clean.replace(/episode\s*\d+/i, '');
+    clean = clean.replace(/sub\s*indo/i, '');
+    clean = clean.replace(/eps\s*\d+/i, '');
+    return clean.trim().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 async function initWatch() {
@@ -219,6 +223,15 @@ async function playEpisode(id, el) {
         }
     } catch (error) {
         console.error("Error playing episode:", error);
+        playerSection.innerHTML = `
+            <div class="player-wrapper" style="padding: 100px 20px;">
+                <div style="text-align: center;">
+                    <i class="fas fa-wifi" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Connection Error</h3>
+                    <p style="color: #94a3b8;">Gagal mengambil data stream dari server. Situs sumber mungkin memblokir koneksi. Coba refresh halaman.</p>
+                </div>
+            </div>
+        `;
     }
 }
 

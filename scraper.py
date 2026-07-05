@@ -136,6 +136,14 @@ class OtakudesuScraper:
                         anime_id = series_link["href"].split("/")[-2]
                         print(f"DEBUG: Resolved to series ID {anime_id}")
                     break
+        
+        # Fallback regex guess if still has episode pattern
+        if "-episode-" in anime_id:
+            anime_id = re.sub(r'-episode-\d+', '', anime_id)
+            print(f"DEBUG: Regex resolved to series ID {anime_id}")
+        elif "-eps-" in anime_id:
+            anime_id = re.sub(r'-eps-\d+', '', anime_id)
+            print(f"DEBUG: Regex resolved to series ID {anime_id}")
 
         soup = None
         for path in ["series", "anime"]:
