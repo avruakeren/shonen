@@ -200,7 +200,7 @@ function renderAnime(list, container, append = false) {
         // Staggered delay yang lebih terasa
         card.style.animationDelay = `${index * 0.1}s`;
         card.innerHTML = `
-            <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+            <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
             <div class="card-info">
                 <span class="ep-tag">${anime.episode || anime.status || 'NEW'}</span>
                 <h3>${anime.title}</h3>

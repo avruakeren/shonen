@@ -5,7 +5,7 @@ import base64
 import re
 
 class OtakudesuScraper:
-    DOMAINS = ["otakudesu.blog", "otakudesu.fit", "otakudesu.cloud"]
+    DOMAINS = ["otakudesu.blog"]
 
     def __init__(self):
         self.scraper = cloudscraper.create_scraper()
