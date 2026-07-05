@@ -34,14 +34,26 @@ async function fetchOngoing() {
     showLoader(true);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
         const response = await fetch(`${API_BASE}/ongoing`, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
 
-        if (data.length === 0) {
+        // Handle new error response format from backend
+        if (data.error) {
+            ongoingGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                    <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
+                    <p style="color: #94a3b8;">Situs sumber (Otakudesu) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
+                    <p style="color: #64748b; font-size: 0.8rem; margin-top: 8px;">${data.error}</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (!data || (Array.isArray(data) && data.length === 0)) {
             ongoingGrid.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
@@ -157,8 +169,10 @@ async function searchAnime(query) {
     try {
         console.log("Searching for:", query);
         const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-        if (!response.ok) throw new Error("Server error: " + response.status);
         const data = await response.json();
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
         console.log("Search results:", data);
         renderAnime(data, searchGrid);
     } catch (error) {
@@ -387,6 +401,8 @@ async function fetchLibrary(page = 1, append = false) {
         const response = await fetch(`${API_BASE}/movies?page=${page}`);
         const data = await response.json();
         
+        if (data && data.error) throw new Error(data.error);
+        
         if (data.length > 0) {
             renderAnime(data, libraryGrid, append);
             libraryPage = page;
@@ -395,6 +411,7 @@ async function fetchLibrary(page = 1, append = false) {
         }
     } catch (e) { 
         console.error(e); 
+        if (libraryGrid && !append) libraryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat library. ' + e.message + '</p>';
     } finally {
         showLoader(false);
         if (loadMoreBtn) loadMoreBtn.disabled = false;
@@ -413,10 +430,11 @@ async function fetchSchedule() {
     try {
         const response = await fetch(`${API_BASE}/schedule`);
         const data = await response.json();
+        if (data && data.error) throw new Error(data.error);
         renderSchedule(data, scheduleContainer);
     } catch (e) {
         console.error(e);
-        if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. Pastikan backend jalan.</p>';
+        if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. ' + e.message + '</p>';
     }
     showLoader(false);
 }
