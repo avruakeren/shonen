@@ -32,8 +32,12 @@ function showView(viewName) {
 
 async function fetchOngoing() {
     showLoader(true);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
     try {
-        const response = await fetch(`${API_BASE}/ongoing`);
+        const response = await fetch(`${API_BASE}/ongoing`, { signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
 
@@ -51,10 +55,13 @@ async function fetchOngoing() {
         renderHeroCarousel(data.slice(0, 5));
         renderAnime(data, ongoingGrid);
     } catch (error) {
+        const msg = error.name === 'AbortError' ? 'Server timeout. Coba refresh.' : 'Gagal memuat anime terbaru. Pastikan backend jalan.';
         console.error("Error fetching ongoing:", error);
-        if (ongoingGrid) ongoingGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat anime terbaru. Pastikan backend jalan.</p>';
+        if (ongoingGrid) ongoingGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">${msg}</p>`;
+    } finally {
+        clearTimeout(timeout);
+        showLoader(false);
     }
-    showLoader(false);
 }
 
 /* --- HERO CAROUSEL --- */
@@ -68,58 +75,30 @@ function renderHeroCarousel(items) {
 
     heroIndex = 0;
 
-    // Skeleton loader
-    track.innerHTML = `
-        <div class="hero-skeleton">
-            <div class="hero-skel-block">
-                <div class="skel skel-badge"></div>
-                <div class="skel skel-title"></div>
-                <div class="skel skel-synopsis"></div>
-                <div class="skel skel-synopsis short"></div>
-                <div class="skel skel-btn"></div>
-            </div>
-        </div>
-    `;
-
-    // Fetch details in parallel for enriched data
-    Promise.all(items.map(item =>
-        fetch(`${API_BASE}/details/${item.id}`)
-            .then(r => r.json())
-            .catch(() => null)
-    )).then(details => {
-        let slidesHtml = '';
-        items.forEach((item, i) => {
-            const detail = details[i] || {};
-            const score = detail?.info?.skor || '';
-            const synopsis = detail?.synopsis || '';
-            const thumb = detail?.thumb || item.thumb;
-
-            slidesHtml += `
-                <div class="hero-slide">
-                    <div class="hero-bg" style="background-image: url('${thumb}')"></div>
-                    <div class="hero-content">
-                        ${score ? `<div class="hero-score"><i class="fas fa-star"></i> ${score}</div>` : ''}
-                        <h2 class="hero-title">${item.title}</h2>
-                        ${synopsis ? `<p class="hero-synopsis">${synopsis}</p>` : ''}
-                        <a href="watch.html?id=${item.id}" class="hero-btn">
-                            <i class="fas fa-play"></i> Watch Now
-                        </a>
-                    </div>
+    let slidesHtml = '';
+    items.forEach((item, i) => {
+        slidesHtml += `
+            <div class="hero-slide">
+                <div class="hero-bg" style="background-image: url('${item.thumb}')"></div>
+                <div class="hero-content">
+                    <h2 class="hero-title">${item.title}</h2>
+                    <a href="watch.html?id=${item.id}" class="hero-btn">
+                        <i class="fas fa-play"></i> Watch Now
+                    </a>
                 </div>
-            `;
-        });
-
-        track.innerHTML = slidesHtml;
-
-        // Dots
-        if (dotsContainer) {
-            dotsContainer.innerHTML = items.map((_, i) =>
-                `<button class="hero-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></button>`
-            ).join('');
-        }
-
-        setupHeroNav(items.length);
+            </div>
+        `;
     });
+
+    track.innerHTML = slidesHtml;
+
+    if (dotsContainer) {
+        dotsContainer.innerHTML = items.map((_, i) =>
+            `<button class="hero-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></button>`
+        ).join('');
+    }
+
+    setupHeroNav(items.length);
 }
 
 function setupHeroNav(total) {

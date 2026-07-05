@@ -41,7 +41,10 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "app.py"
+      "dest": "app.py",
+      "headers": {
+        "Cache-Control": "public, s-maxage=300, max-age=60, stale-while-revalidate=600"
+      }
     },
     {
       "src": "/(.*)",

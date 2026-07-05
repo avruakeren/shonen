@@ -15,21 +15,17 @@ class OtakudesuScraper:
 
     def _get_soup(self, url):
         try:
-            # Reverting to verify=True but with a more modern User-Agent
-            # If it still fails with 525, we will try verify=False as a fallback
-            response = requests.get(url, headers=self.headers, timeout=15)
-            print(f"DEBUG: Fetched {url} - Status: {response.status_code}")
+            response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
-            return BeautifulSoup(response.content, "html.parser")
+            return BeautifulSoup(response.content, "lxml")
         except Exception as e:
             print(f"Error fetching {url}: {e}")
-            # Try fallback with verify=False if it was an SSL error
             if "SSL" in str(e) or "handshake" in str(e) or "525" in str(e):
                 try:
-                    print(f"DEBUG: SSL Error detected, retrying {url} with verify=False")
-                    response = requests.get(url, headers=self.headers, timeout=15, verify=False)
-                    return BeautifulSoup(response.content, "html.parser")
-                except: pass
+                    response = requests.get(url, headers=self.headers, timeout=10, verify=False)
+                    return BeautifulSoup(response.content, "lxml")
+                except:
+                    pass
             return None
 
     def get_ongoing(self, page=1):
