@@ -1,3 +1,4 @@
+import cloudscraper
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -8,21 +9,26 @@ class OtakudesuScraper:
     BASE_URL = "https://otakudesu.blog"
 
     def __init__(self):
+        self.cs = cloudscraper.create_scraper()
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
         })
 
     def _get_soup(self, url):
         try:
-            response = self.session.get(url, timeout=15)
-            response.raise_for_status()
-            return BeautifulSoup(response.content, "lxml")
-        except Exception as e:
-            print(f"Error fetching {url}: {e}")
-            return None
+            resp = self.cs.get(url, timeout=15)
+            resp.raise_for_status()
+            return BeautifulSoup(resp.content, "lxml")
+        except Exception as e1:
+            print(f"cloudscraper failed: {e1}")
+            try:
+                resp = self.session.get(url, timeout=15)
+                resp.raise_for_status()
+                return BeautifulSoup(resp.content, "lxml")
+            except Exception as e2:
+                print(f"requests fallback also failed: {e2}")
+                return None
 
     def get_ongoing(self, page=1):
         url = f"{self.BASE_URL}/ongoing-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/ongoing-anime/"

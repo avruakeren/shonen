@@ -8,6 +8,10 @@ function showLoader(show) {
     if (loader) loader.style.display = show ? 'flex' : 'none';
 }
 
+function slugToTitle(slug) {
+    return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 async function initWatch() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
@@ -27,31 +31,91 @@ async function initWatch() {
         
         if (data && !data.error) {
             renderDetails(data);
-            // Autoplay first episode if needed or just wait for click
         } else {
+            throw new Error(data.error || "Anime not found");
+        }
+    } catch (error) {
+        console.error("Backend failed, trying Jikan fallback:", error);
+        try {
+            const query = slugToTitle(id);
+            const jikanRes = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=1`);
+            const jikanData = await jikanRes.json();
+            if (jikanData?.data?.length > 0) {
+                const a = jikanData.data[0];
+                renderFallbackDetails({
+                    title: a.title_english || a.title,
+                    thumb: a.images?.webp?.large_image_url || a.images?.jpg?.large_image_url || '',
+                    synopsis: a.synopsis || 'Sinopsis tidak tersedia.',
+                    info: {
+                        status: a.status?.replace('_', ' ') || 'Unknown',
+                        type: a.type || 'TV',
+                        score: a.score ? String(a.score) : 'N/A',
+                        episodes: a.episodes ? String(a.episodes) : '?',
+                    },
+                    episodes: []
+                });
+            } else {
+                throw new Error("Jikan fallback also failed");
+            }
+        } catch (fallbackError) {
+            console.error("Fallback failed:", fallbackError);
             detailContainer.innerHTML = `
                 <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
-                    <i class="fas fa-search" style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;"></i>
-                    <h3 style="color: #fff; margin-bottom: 10px;">Anime Tidak Ditemukan</h3>
-                    <p style="color: #94a3b8; margin-bottom: 25px;">Data untuk anime ini tidak tersedia atau link sudah kadaluarsa.</p>
-                    <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Kembali ke Beranda</button>
+                    <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Menghubungkan ke Server</h3>
+                    <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba ganti ke domain lain di scraper.py.</p>
+                    <button onclick="window.location.reload()" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Coba Lagi</button>
+                    <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: #94a3b8; cursor: pointer; margin-left: 10px;">Kembali</button>
                 </div>
             `;
         }
-    } catch (error) {
-        console.error("Error fetching details:", error);
-        detailContainer.innerHTML = `
-            <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
-                <h3 style="color: #fff; margin-bottom: 10px;">Gagal Menghubungkan ke Server</h3>
-                <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba ganti ke domain lain di scraper.py.</p>
-                <button onclick="window.location.reload()" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Coba Lagi</button>
-                <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: #94a3b8; cursor: pointer; margin-left: 10px;">Kembali</button>
-            </div>
-        `;
     } finally {
         showLoader(false);
     }
+}
+
+function renderFallbackDetails(anime) {
+    const isFav = isFavorite(currentAnimeId);
+    detailContainer.innerHTML = `
+        <div class="watch-container">
+            <div id="playerSection"></div>
+            <div class="detail-grid">
+                <div class="detail-left glass-card">
+                    <div class="poster-wrapper">
+                        <img src="${anime.thumb}" alt="${anime.title}">
+                    </div>
+                    <div class="stats-grid">
+                        ${Object.entries(anime.info).map(([k, v], idx) => `
+                            <div class="stat-item" style="animation-delay: ${idx * 0.05}s">
+                                <span class="stat-label">${k.replace(/_/g, ' ')}</span>
+                                <p class="stat-value" title="${v}">${v}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="detail-main glass-card">
+                    <div class="detail-header">
+                        <h2 class="anime-title">${anime.title}</h2>
+                        <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})' 
+                                id="favBtn" class="glass fav-btn ${isFav ? 'active' : ''}">
+                            <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
+                        </button>
+                    </div>
+                    <div class="badge-container">
+                        <span class="info-badge">${anime.info.status || 'Unknown'}</span>
+                        <span class="info-badge">${anime.info.type || 'TV'}</span>
+                        <span class="info-badge">${anime.info.score || 'N/A'}</span>
+                    </div>
+                    <h3 class="section-subtitle">Synopsis</h3>
+                    <p class="synopsis-text">${anime.synopsis}</p>
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; text-align: center; border: 1px solid rgba(99, 102, 241, 0.2);">
+                        <i class="fas fa-info-circle" style="color: var(--primary); margin-right: 8px;"></i>
+                        <span style="color: var(--text-muted); font-size: 0.9rem;">Episode list tidak tersedia saat sumber utama offline.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function renderDetails(anime) {
