@@ -1,50 +1,32 @@
-import httpx
-import requests as std_requests
+import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 import base64
 import re
 
 class OtakudesuScraper:
-    DOMAINS = ["otakudesu.blog"]
-    HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    }
+    BASE_URL = "https://otakudesu.blog"
 
-    def _fetch(self, url, timeout=15):
-        try:
-            with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-                resp = client.get(url, headers=self.HEADERS)
-                resp.raise_for_status()
-                return resp.content
-        except Exception as e1:
-            print(f"httpx failed for {url}: {e1}")
-            try:
-                resp = std_requests.get(url, headers=self.HEADERS, timeout=timeout)
-                resp.raise_for_status()
-                return resp.content
-            except Exception as e2:
-                print(f"requests fallback also failed: {e2}")
-                return None
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+        })
 
     def _get_soup(self, url):
-        content = self._fetch(url)
-        if content is None:
+        try:
+            response = self.session.get(url, timeout=15)
+            response.raise_for_status()
+            return BeautifulSoup(response.content, "lxml")
+        except Exception as e:
+            print(f"Error fetching {url}: {e}")
             return None
-        return BeautifulSoup(content, "lxml")
-
-    def _try_on_domains(self, path):
-        for domain in self.DOMAINS:
-            url = f"https://{domain}{path}"
-            print(f"Trying {url}")
-            soup = self._get_soup(url)
-            if soup:
-                return soup
-        return None
 
     def get_ongoing(self, page=1):
-        path = f"/ongoing-anime/page/{page}/" if page > 1 else "/ongoing-anime/"
-        soup = self._try_on_domains(path)
+        url = f"{self.BASE_URL}/ongoing-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/ongoing-anime/"
+        soup = self._get_soup(url)
         if not soup: return []
 
         anime_list = []
@@ -81,8 +63,8 @@ class OtakudesuScraper:
         return anime_list
 
     def get_movies(self, page=1):
-        path = f"/complete-anime/page/{page}/" if page > 1 else "/complete-anime/"
-        soup = self._try_on_domains(path)
+        url = f"{self.BASE_URL}/complete-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/complete-anime/"
+        soup = self._get_soup(url)
         if not soup: return []
 
         anime_list = []
@@ -107,8 +89,8 @@ class OtakudesuScraper:
         return anime_list
 
     def search(self, query):
-        path = f"/?s={urllib.parse.quote(query)}&post_type=anime"
-        soup = self._try_on_domains(path)
+        search_url = f"{self.BASE_URL}/?s={urllib.parse.quote(query)}&post_type=anime"
+        soup = self._get_soup(search_url)
         if not soup: return []
 
         results = []
@@ -138,10 +120,11 @@ class OtakudesuScraper:
     def get_details(self, anime_id):
         print(f"DEBUG: get_details called for {anime_id}")
         if "-episode-" in anime_id or "-eps-" in anime_id:
-            for ep_path in [f"/episode/{anime_id}/", f"/{anime_id}/"]:
-                soup = self._try_on_domains(ep_path)
+            for ep_path in [f"episode/{anime_id}", anime_id]:
+                test_url = f"{self.BASE_URL}/{ep_path}/"
+                soup = self._get_soup(test_url)
                 if soup:
-                    print(f"DEBUG: Resolving episode link {ep_path}")
+                    print(f"DEBUG: Resolving episode link {test_url}")
                     series_link = soup.find("a", href=lambda x: x and ("/series/" in x or "/anime/" in x))
                     if series_link:
                         anime_id = series_link["href"].split("/")[-2]
@@ -150,9 +133,11 @@ class OtakudesuScraper:
 
         soup = None
         for path in ["series", "anime"]:
-            soup = self._try_on_domains(f"/{path}/{anime_id}/")
+            url = f"{self.BASE_URL}/{path}/{anime_id}/"
+            print(f"DEBUG: Trying {url}")
+            soup = self._get_soup(url)
             if soup and (soup.select_one(".infox") or soup.select_one(".infozin")):
-                print(f"DEBUG: Found details at /{path}/{anime_id}/")
+                print(f"DEBUG: Found details at {url}")
                 break
         if not soup:
             print(f"DEBUG: No details found for {anime_id}")
@@ -213,7 +198,8 @@ class OtakudesuScraper:
         }
 
     def get_schedule(self):
-        soup = self._try_on_domains("/jadwal-rilis/")
+        url = f"{self.BASE_URL}/jadwal-rilis/"
+        soup = self._get_soup(url)
         if not soup: return []
 
         schedule = []
@@ -291,8 +277,7 @@ class OtakudesuScraper:
             return desustream_url
         try:
             json_url = f"{desustream_url}&mode=json"
-            with httpx.Client(timeout=10, follow_redirects=True) as client:
-                resp = client.get(json_url, headers=self.HEADERS)
+            resp = self.session.get(json_url, timeout=10)
             if resp.ok:
                 data = resp.json()
                 video_url = data.get("video", "")
@@ -300,27 +285,17 @@ class OtakudesuScraper:
                     print(f"DEBUG: Resolved desustream to direct URL")
                     return video_url
         except Exception as e:
-            try:
-                json_url = f"{desustream_url}&mode=json"
-                resp = std_requests.get(json_url, headers=self.HEADERS, timeout=10)
-                if resp.ok:
-                    data = resp.json()
-                    video_url = data.get("video", "")
-                    if video_url:
-                        print(f"DEBUG: Resolved desustream via requests fallback")
-                        return video_url
-            except:
-                pass
             print(f"Error resolving desustream URL: {e}")
         return desustream_url
 
     def get_stream(self, episode_id):
         print(f"DEBUG: get_stream called for {episode_id}")
         soup = None
-        for path in [f"/episode/{episode_id}/", f"/{episode_id}/"]:
-            soup = self._try_on_domains(path)
+        for path in [f"episode/{episode_id}", episode_id]:
+            url = f"{self.BASE_URL}/{path}/"
+            soup = self._get_soup(url)
             if soup:
-                print(f"DEBUG: Found stream page at {path}")
+                print(f"DEBUG: Found stream page at {url}")
                 break
         if not soup: return None
 
