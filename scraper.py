@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+
 try:
     import cloudscraper
 except ImportError:
@@ -22,23 +25,32 @@ class OtakudesuScraper:
         })
 
     def _get_soup(self, url):
-        try:
-            # Use cloudscraper if available, otherwise fallback to standard requests session
-            if self.cs:
-                resp = self.cs.get(url, timeout=15)
-            else:
-                resp = self.session.get(url, timeout=15)
-            resp.raise_for_status()
-            return BeautifulSoup(resp.content, "lxml")
-        except Exception as e1:
-            print(f"cloudscraper failed: {e1}")
+        # Unified request method with explicit User-Agent header
+        headers = {"User-Agent": self.session.headers.get("User-Agent", "Mozilla/5.0")}
+        # First attempt: cloudscraper (if available) then requests session
+        for attempt, client in enumerate([self.cs, self.session], start=1):
+            if not client:
+                continue
             try:
-                resp = self.session.get(url, timeout=15)
+                resp = client.get(url, timeout=15, headers=headers)
                 resp.raise_for_status()
                 return BeautifulSoup(resp.content, "lxml")
-            except Exception as e2:
-                print(f"requests fallback also failed: {e2}")
-                return None
+            except Exception as e:
+                logging.warning(f"[Attempt {attempt}] {type(client).__name__} request failed for {url}: {e}")
+                # If cloudscraper failed due to Cloudflare challenge, fall back immediately
+                if isinstance(client, type(self.cs)) and "Cloudflare" in str(e):
+                    logging.info("Cloudscraper challenge detected, falling back to requests session")
+                    continue
+
+        # Final fallback using plain requests
+        try:
+            resp = requests.get(url, timeout=15, headers=headers)
+            resp.raise_for_status()
+            return BeautifulSoup(resp.content, "lxml")
+        except Exception as e:
+            print(f"Final fallback request also failed for {url}: {e}")
+            return None
+
 
     def get_ongoing(self, page=1):
         url = f"{self.BASE_URL}/ongoing-anime/page/{page}/" if page > 1 else f"{self.BASE_URL}/ongoing-anime/"
