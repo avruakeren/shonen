@@ -67,7 +67,7 @@ async function initWatch() {
                 <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
                     <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
                     <h3 style="color: #fff; margin-bottom: 10px;">Gagal Menghubungkan ke Server</h3>
-                    <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba ganti ke domain lain di scraper.py.</p>
+                    <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba refresh halaman.</p>
                     <button onclick="window.location.reload()" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Coba Lagi</button>
                     <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: #94a3b8; cursor: pointer; margin-left: 10px;">Kembali</button>
                 </div>

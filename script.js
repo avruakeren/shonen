@@ -46,7 +46,7 @@ async function fetchOngoing() {
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
                     <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
-                    <p style="color: #94a3b8;">Situs sumber (Otakudesu) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
+                    <p style="color: #94a3b8;">Situs sumber (Samehadaku) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
                     <p style="color: #64748b; font-size: 0.8rem; margin-top: 8px;">${data.error}</p>
                 </div>
             `;
@@ -58,7 +58,7 @@ async function fetchOngoing() {
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
                     <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
-                    <p style="color: #94a3b8;">Situs sumber (Otakudesu) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
+                    <p style="color: #94a3b8;">Situs sumber (Samehadaku) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
                 </div>
             `;
             return;
@@ -124,7 +124,7 @@ function setupHeroNav(total) {
         if (index < 0) index = total - 1;
         if (index >= total) index = 0;
         heroIndex = index;
-        track.style.transform = `translateX(-${index * 100}%)`;
+        track.style.left = `-${index * 100}%`;
 
         document.querySelectorAll('.hero-dot').forEach(dot => {
             dot.classList.toggle('active', parseInt(dot.dataset.index) === index);
@@ -279,6 +279,23 @@ function renderMalAnime(list, containerId) {
     });
 }
 
+async function scheduleSearch(title, btn) {
+    const origText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(title)}`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+            window.location.href = `watch.html?id=${data[0].id}`;
+        } else {
+            btn.innerHTML = '<i class="fas fa-times" style="color:#f43f5e"></i> Not found';
+            setTimeout(() => { btn.innerHTML = origText; }, 2000);
+        }
+    } catch {
+        btn.innerHTML = origText;
+    }
+}
+
 function renderSchedule(data, container) {
     container.innerHTML = '';
     container.style.display = 'grid';
@@ -304,7 +321,7 @@ function renderSchedule(data, container) {
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${item.anime.map(anime => `
-                    <button onclick="window.location.href='watch.html?id=${anime.id}'" 
+                    <button onclick="scheduleSearch('${anime.title.replace(/'/g, "\\'")}', this)" 
                             style="text-align: left; background: rgba(255,255,255,0.03); color: var(--text-main); border: 1px solid var(--border); padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 0.88rem; transition: all 0.25s; display: flex; align-items: center; gap: 10px;"
                             onmouseover="this.style.background='var(--primary)';this.style.borderColor='var(--primary)';this.style.transform='translateX(5px)'"
                             onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='var(--border)';this.style.transform='translateX(0)'">
@@ -428,10 +445,23 @@ if (loadMoreLibrary) {
 async function fetchSchedule() {
     showLoader(true);
     try {
-        const response = await fetch(`${API_BASE}/schedule`);
-        const data = await response.json();
-        if (data && data.error) throw new Error(data.error);
-        renderSchedule(data, scheduleContainer);
+        const response = await fetch('https://api.jikan.moe/v4/schedules');
+        const json = await response.json();
+        if (json.error) throw new Error(json.error);
+
+        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+        const schedule = days.map(day => ({
+            day: day.charAt(0).toUpperCase() + day.slice(1),
+            anime: (json.data || [])
+                .filter(ep => (ep.broadcast?.day || '').toLowerCase() === day)
+                .map(ep => ({
+                    title: ep.title_english || ep.title,
+                    mal_id: ep.mal_id,
+                    id: '',
+                }))
+        })).filter(d => d.anime.length > 0);
+
+        renderSchedule(schedule, scheduleContainer);
     } catch (e) {
         console.error(e);
         if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. ' + e.message + '</p>';
