@@ -8,6 +8,8 @@ const favoritesGrid = document.getElementById('favoritesGrid');
 const scheduleContainer = document.getElementById('scheduleContainer');
 const loader = document.getElementById('loader');
 let libraryPage = 1;
+let libraryData = [];
+let currentSort = 'latest';
 
 
 // Views
@@ -65,7 +67,7 @@ async function fetchOngoing() {
         }
 
         renderHeroCarousel(data.slice(0, 5));
-        renderAnime(data, ongoingGrid);
+        renderAnime(data.slice(0, 18), ongoingGrid);
     } catch (error) {
         const msg = error.name === 'AbortError' ? 'Server timeout. Coba refresh.' : 'Gagal memuat anime terbaru. Pastikan backend jalan.';
         console.error("Error fetching ongoing:", error);
@@ -190,7 +192,15 @@ function renderAnime(list, container, append = false) {
     if (!append) container.innerHTML = '';
     
     if (list.length === 0 && !append) {
-        container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No anime found.</p>';
+        container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 4rem; margin-bottom: 16px; animation: searchBounce 2s ease-in-out infinite;">
+                    <i class="fas fa-search" style="color: var(--primary);"></i>
+                </div>
+                <h3 style="color: #fff; margin-bottom: 6px; font-size: 1.2rem;">Anime Not Found</h3>
+                <p style="color: #94a3b8; font-size: 0.9rem;">Sorry, coba searching manual pake judul bahasa Jepangnya.</p>
+            </div>
+        `;
         return;
     }
 
@@ -228,7 +238,7 @@ async function fetchMalData() {
                 const titleEl = document.getElementById('seasonalTitle');
                 if (titleEl) titleEl.innerHTML = `<i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year || ''})`;
             }
-            renderMalAnime(seasonalData.data, 'seasonalGrid');
+            renderMalAnime(seasonalData.data, 'seasonalGrid', false);
         }
 
         // Delay for Top Rated to respect Jikan API limits
@@ -236,7 +246,7 @@ async function fetchMalData() {
             try {
                 const topRes = await fetch("https://api.jikan.moe/v4/top/anime?limit=10");
                 const topData = await topRes.json();
-                if (topData.data) renderMalAnime(topData.data, 'topGrid');
+                if (topData.data) renderMalAnime(topData.data, 'topGrid', true);
             } catch (e) { console.error("Top MAL Error:", e); }
         }, 1200);
 
@@ -245,7 +255,7 @@ async function fetchMalData() {
     }
 }
 
-function renderMalAnime(list, containerId) {
+function renderMalAnime(list, containerId, showRank = true) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
@@ -253,15 +263,31 @@ function renderMalAnime(list, containerId) {
     list.forEach((anime, index) => {
         const title = anime.title_english || anime.title;
         const card = document.createElement('div');
-        card.className = 'anime-card';
+        card.className = showRank ? 'anime-card anime-card-rank' : 'anime-card';
         card.style.animationDelay = `${index * 0.05}s`;
-        card.innerHTML = `
+
+        const rankHtml = showRank ? `
+            <span class="rank-number">${String(anime.rank || (index + 1)).padStart(2, '0')}</span>
+        ` : '';
+
+        const innerHtml = showRank ? `
+            ${rankHtml}
+            <div class="rank-card-content">
+                <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb" loading="lazy">
+                <div class="card-info">
+                    <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
+                    <h3>${title}</h3>
+                </div>
+            </div>
+        ` : `
             <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb" loading="lazy">
             <div class="card-info">
                 <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
                 <h3>${title}</h3>
             </div>
         `;
+
+        card.innerHTML = innerHtml;
         card.onclick = async () => {
             try {
                 const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(title)}`);
@@ -410,9 +436,9 @@ function handleRoute() {
 window.addEventListener('hashchange', handleRoute);
 
 async function fetchLibrary(page = 1, append = false) {
-    showLoader(true);
     const loadMoreBtn = document.getElementById('loadMoreLibrary');
-    if (loadMoreBtn) loadMoreBtn.disabled = true;
+    if (!append) showLoader(true);
+    if (loadMoreBtn) { loadMoreBtn.disabled = true; loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...'; }
 
     try {
         const response = await fetch(`${API_BASE}/movies?page=${page}`);
@@ -421,8 +447,13 @@ async function fetchLibrary(page = 1, append = false) {
         if (data && data.error) throw new Error(data.error);
         
         if (data.length > 0) {
-            renderAnime(data, libraryGrid, append);
+            if (append) {
+                libraryData = libraryData.concat(data);
+            } else {
+                libraryData = data;
+            }
             libraryPage = page;
+            applySort();
         } else {
             if (loadMoreBtn) loadMoreBtn.style.display = 'none';
         }
@@ -430,10 +461,29 @@ async function fetchLibrary(page = 1, append = false) {
         console.error(e); 
         if (libraryGrid && !append) libraryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat library. ' + e.message + '</p>';
     } finally {
-        showLoader(false);
-        if (loadMoreBtn) loadMoreBtn.disabled = false;
+        if (!append) showLoader(false);
+        if (loadMoreBtn) { loadMoreBtn.disabled = false; loadMoreBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Load More Anime'; }
     }
 }
+
+function applySort() {
+    const sorted = [...libraryData];
+    if (currentSort === 'az') {
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (currentSort === 'za') {
+        sorted.sort((a, b) => b.title.localeCompare(a.title));
+    }
+    renderAnime(sorted, libraryGrid);
+}
+
+document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentSort = this.dataset.sort;
+        applySort();
+    });
+});
 
 const loadMoreLibrary = document.getElementById('loadMoreLibrary');
 if (loadMoreLibrary) {

@@ -1,11 +1,32 @@
 const API_BASE = "/api";
 const loader = document.getElementById('loader');
-const detailContainer = document.getElementById('detailContainer');
+const playerSkeleton = document.getElementById('playerSkeleton');
+const mainVideoContainer = document.getElementById('mainVideoContainer');
+const serverSelector = document.getElementById('serverSelector');
+const posterContainer = document.getElementById('posterContainer');
+const detailMain = document.getElementById('detailMain');
+const episodeGrid = document.getElementById('episodeGrid');
+const seasonTabs = document.getElementById('seasonTabs');
+const downloadSection = document.getElementById('downloadSection');
+const recommendedGrid = document.getElementById('recommendedGrid');
+const nowPlayingIndicator = document.getElementById('nowPlayingIndicator');
 
 let currentAnimeId = null;
+let currentEpisodes = [];
+let currentEpisodeId = null;
 
 function showLoader(show) {
     if (loader) loader.style.display = show ? 'flex' : 'none';
+}
+
+function showPlayerSkeleton() {
+    if (playerSkeleton) playerSkeleton.style.display = 'block';
+    if (mainVideoContainer) mainVideoContainer.style.display = 'none';
+}
+
+function hidePlayerSkeleton() {
+    if (playerSkeleton) playerSkeleton.style.display = 'none';
+    if (mainVideoContainer) mainVideoContainer.style.display = 'block';
 }
 
 function slugToTitle(slug) {
@@ -16,10 +37,26 @@ function slugToTitle(slug) {
     return clean.trim().replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function getEpisodeProgress(animeId) {
+    try {
+        const data = JSON.parse(localStorage.getItem('shonen_progress') || '{}');
+        return data[animeId] || null;
+    } catch { return null; }
+}
+
+function setEpisodeProgress(animeId, episodeId) {
+    try {
+        const data = JSON.parse(localStorage.getItem('shonen_progress') || '{}');
+        data[animeId] = episodeId;
+        localStorage.setItem('shonen_progress', JSON.stringify(data));
+    } catch {}
+}
+
 async function initWatch() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
-    
+    const ep = params.get('ep');
+
     if (!id) {
         window.location.href = 'index.html';
         return;
@@ -27,14 +64,32 @@ async function initWatch() {
 
     currentAnimeId = id;
     showLoader(true);
-    
+    showPlayerSkeleton();
+
     try {
         const response = await fetch(`${API_BASE}/details/${id}`);
         if (!response.ok) throw new Error("Anime not found");
         const data = await response.json();
-        
+
         if (data && !data.error) {
             renderDetails(data);
+            const targetEp = ep
+                ? data.episodes.find(e => e.id === ep || e.id.endsWith(ep))
+                : null;
+            if (targetEp) {
+                playEpisode(targetEp.id);
+            } else {
+                const progress = getEpisodeProgress(id);
+                const resumeEp = progress
+                    ? data.episodes.find(e => e.id === progress || e.id.endsWith(progress))
+                    : null;
+                if (resumeEp) {
+                    playEpisode(resumeEp.id);
+                } else if (data.episodes.length > 0) {
+                    const last = data.episodes[data.episodes.length - 1];
+                    playEpisode(last.id);
+                }
+            }
         } else {
             throw new Error(data.error || "Anime not found");
         }
@@ -51,10 +106,11 @@ async function initWatch() {
                     thumb: a.images?.webp?.large_image_url || a.images?.jpg?.large_image_url || '',
                     synopsis: a.synopsis || 'Sinopsis tidak tersedia.',
                     info: {
-                        status: a.status?.replace('_', ' ') || 'Unknown',
+                        status: a.status?.replace(/_/g, ' ') || 'Unknown',
                         type: a.type || 'TV',
                         score: a.score ? String(a.score) : 'N/A',
                         episodes: a.episodes ? String(a.episodes) : '?',
+                        genres: a.genres ? a.genres.map(g => g.name).join(', ') : '',
                     },
                     episodes: []
                 });
@@ -63,13 +119,19 @@ async function initWatch() {
             }
         } catch (fallbackError) {
             console.error("Fallback failed:", fallbackError);
-            detailContainer.innerHTML = `
-                <div class="glass-card" style="margin: 50px auto; max-width: 600px; text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
-                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Menghubungkan ke Server</h3>
-                    <p style="color: #94a3b8; margin-bottom: 25px;">Pastikan koneksi internet stabil atau coba refresh halaman.</p>
-                    <button onclick="window.location.reload()" class="glass" style="padding: 10px 20px; border-radius: 12px; color: white; cursor: pointer;">Coba Lagi</button>
-                    <button onclick="window.location.href='index.html'" class="glass" style="padding: 10px 20px; border-radius: 12px; color: #94a3b8; cursor: pointer; margin-left: 10px;">Kembali</button>
+            document.getElementById('watchContent').innerHTML = `
+                <div class="error-state glass-card">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>Failed to Load</h3>
+                    <p>Can't connect to the server. Please check your connection and try again.</p>
+                    <div class="error-actions">
+                        <button onclick="window.location.reload()" class="hero-btn">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                        <button onclick="window.location.href='index.html'" class="glass-btn">
+                            <i class="fas fa-home"></i> Home
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -78,130 +140,134 @@ async function initWatch() {
     }
 }
 
-function renderFallbackDetails(anime) {
-    const isFav = isFavorite(currentAnimeId);
-    detailContainer.innerHTML = `
-        <div class="watch-container">
-            <div id="playerSection"></div>
-            <div class="detail-grid">
-                <div class="detail-left glass-card">
-                    <div class="poster-wrapper">
-                        <img src="${anime.thumb}" alt="${anime.title}">
-                    </div>
-                    <div class="stats-grid">
-                        ${Object.entries(anime.info).map(([k, v], idx) => `
-                            <div class="stat-item" style="animation-delay: ${idx * 0.05}s">
-                                <span class="stat-label">${k.replace(/_/g, ' ')}</span>
-                                <p class="stat-value" title="${v}">${v}</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="detail-main glass-card">
-                    <div class="detail-header">
-                        <h2 class="anime-title">${anime.title}</h2>
-                        <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})' 
-                                id="favBtn" class="glass fav-btn ${isFav ? 'active' : ''}">
-                            <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
-                        </button>
-                    </div>
-                    <div class="badge-container">
-                        <span class="info-badge">${anime.info.status || 'Unknown'}</span>
-                        <span class="info-badge">${anime.info.type || 'TV'}</span>
-                        <span class="info-badge">${anime.info.score || 'N/A'}</span>
-                    </div>
-                    <h3 class="section-subtitle">Synopsis</h3>
-                    <p class="synopsis-text">${anime.synopsis}</p>
-                    <div style="margin-top: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; text-align: center; border: 1px solid rgba(99, 102, 241, 0.2);">
-                        <i class="fas fa-info-circle" style="color: var(--primary); margin-right: 8px;"></i>
-                        <span style="color: var(--text-muted); font-size: 0.9rem;">Episode list tidak tersedia saat sumber utama offline.</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 function renderDetails(anime) {
+    currentEpisodes = anime.episodes || [];
+    renderAnimeInfo(anime);
+    renderEpisodeDropdown(anime.episodes);
+    if (anime.downloads) renderDownloads(anime.downloads);
+    renderRecommended(currentAnimeId);
+}
+
+function renderFallbackDetails(anime) {
+    currentEpisodes = [];
+    renderAnimeInfo(anime);
+    renderEpisodeDropdown([]);
+    renderRecommended(currentAnimeId);
+}
+
+function renderAnimeInfo(anime) {
     const isFav = isFavorite(currentAnimeId);
-    detailContainer.innerHTML = `
-        <div class="watch-container">
-            <div id="playerSection"></div>
-            
-            <div class="detail-grid">
-                <!-- Left Column: Poster & Stats -->
-                <div class="detail-left glass-card">
-                    <div class="poster-wrapper">
-                        <img src="${anime.thumb}" alt="${anime.title}">
-                    </div>
-                    <div class="stats-grid">
-                        ${Object.entries(anime.info).map(([k, v], idx) => `
-                            <div class="stat-item" style="animation-delay: ${idx * 0.05}s">
-                                <span class="stat-label">${k.replace(/_/g, ' ')}</span>
-                                <p class="stat-value" title="${v}">${v}</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+    const info = anime.info || {};
 
-                <!-- Middle Column: Title & Synopsis -->
-                <div class="detail-main glass-card">
-                    <div class="detail-header">
-                        <h2 class="anime-title">${anime.title}</h2>
-                        <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})' 
-                                id="favBtn" class="glass fav-btn ${isFav ? 'active' : ''}">
-                            <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
-                        </button>
-                    </div>
-                    
-                    <div class="badge-container">
-                        <span class="info-badge">${anime.info.status || 'Ongoing'}</span>
-                        <span class="info-badge">${anime.info.type || 'TV'}</span>
-                        <span class="info-badge">${anime.info.score || 'N/A'}</span>
-                    </div>
-
-                    <h3 class="section-subtitle">Synopsis</h3>
-                    <p class="synopsis-text">${anime.synopsis}</p>
-                </div>
-
-                <!-- Right Column: Episode List -->
-                <div class="detail-right glass-card">
-                    <h3 class="episode-list-title">
-                        <i class="fas fa-list-ul"></i> Episode List
-                    </h3>
-                    <div class="episode-list">
-                        ${anime.episodes.map(ep => `
-                            <div onclick="playEpisode('${ep.id}', this)" class="ep-item">
-                                <span class="ep-title-wrapper">
-                                    <i class="fas fa-play"></i> 
-                                    <span class="ep-title-text">${ep.title}</span>
-                                </span>
-                                <span class="ep-date">${ep.date}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+    const posterHtml = `
+        <div class="poster-frame">
+            <div class="poster-inner">
+                <img src="${anime.thumb}" alt="${anime.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/280x400?text=No+Image'">
             </div>
         </div>
+    `;
+    posterContainer.innerHTML = posterHtml;
+
+    const badges = [];
+    if (info.score) badges.push(`<span class="info-badge score"><i class="fas fa-star"></i> ${info.score}</span>`);
+    if (info.status) badges.push(`<span class="info-badge">${info.status}</span>`);
+    if (info.type) badges.push(`<span class="info-badge type">${info.type}</span>`);
+    if (info.total_episode) badges.push(`<span class="info-badge eps">${info.total_episode} EP</span>`);
+    if (info.rilis) {
+        const year = info.rilis.match(/\d{4}/);
+        if (year) badges.push(`<span class="info-badge year">${year[0]}</span>`);
+    }
+
+    const genreHtml = info.genres ? `
+        <div class="genre-pills">
+            ${info.genres.split(',').map(g => `<span class="genre-pill">${g.trim()}</span>`).join('')}
+        </div>
+    ` : '';
+
+    const metaKeys = ['durasi', 'produser', 'japanese', 'skor'];
+    const metaHtml = metaKeys.filter(k => info[k]).map(k => `
+        <div class="meta-item">
+            <span class="meta-label">${k.replace(/_/g, ' ')}</span>
+            <span class="meta-value">${info[k]}</span>
+        </div>
+    `).join('');
+
+    detailMain.innerHTML = `
+        <div class="detail-header">
+            <div>
+                <h2 class="anime-title">${anime.title}</h2>
+                <div class="badge-container">${badges.join('')}</div>
+            </div>
+            <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})'
+                    id="favBtn" class="glass fav-btn ${isFav ? 'active' : ''}">
+                <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
+            </button>
+        </div>
+
+        ${genreHtml}
+
+        <p class="synopsis-text">${anime.synopsis || 'No synopsis available.'}</p>
+
+        ${metaHtml ? `<div class="meta-grid">${metaHtml}</div>` : ''}
     `;
 }
 
-async function playEpisode(id, el) {
-    // UI Feedback for active episode
-    document.querySelectorAll('.ep-item').forEach(item => item.classList.remove('active'));
-    if (el) el.classList.add('active');
-
-    const playerSection = document.getElementById('playerSection');
-    if (!playerSection) return;
-
-    playerSection.innerHTML = `
-        <div class="player-wrapper">
-            <div class="video-container" style="display: flex; align-items: center; justify-content: center; background: #000;">
-                <div class="loader" style="display: block;"></div>
+function renderEpisodeDropdown(episodes) {
+    if (!episodes || episodes.length === 0) {
+        episodeGrid.innerHTML = `
+            <div class="ep-empty-state">
+                <i class="fas fa-film"></i>
+                <p>No episodes available yet.</p>
             </div>
-        </div>
-    `;
-    
+        `;
+        return;
+    }
+
+    const select = document.createElement('select');
+    select.className = 'episode-select';
+    select.innerHTML = episodes.map((ep, i) => {
+        const epNum = ep.title.match(/\d+/)?.[0] || (i + 1);
+        const isActive = ep.id === currentEpisodeId;
+        const isWatched = getEpisodeProgress(currentAnimeId) === ep.id;
+        const label = `EP ${epNum}${ep.title.replace(/episode\s*\d+/i, '').trim() ? ' - ' + ep.title.replace(/episode\s*\d+/i, '').trim() : ''}`;
+        return `<option value="${ep.id}" ${isActive ? 'selected' : ''}>${isWatched ? '✓ ' : ''}${label}</option>`;
+    }).join('');
+
+    select.addEventListener('change', function () {
+        playEpisode(this.value);
+    });
+
+    episodeGrid.innerHTML = '';
+    episodeGrid.appendChild(select);
+}
+
+function getEpLabel(id) {
+    const ep = currentEpisodes.find(e => e.id === id);
+    if (!ep) return id;
+    const num = ep.title.match(/\d+/)?.[0] || '';
+    const clean = ep.title.replace(/episode\s*\d+/i, '').trim();
+    return `EP ${num}${clean ? ' - ' + clean : ''}`;
+}
+
+async function playEpisode(id) {
+    if (!id) return;
+    currentEpisodeId = id;
+    setEpisodeProgress(currentAnimeId, id);
+
+    const select = document.querySelector('.episode-select');
+    if (select) {
+        select.value = id;
+        Array.from(select.options).forEach(opt => {
+            const isWatched = getEpisodeProgress(currentAnimeId) === opt.value;
+            const label = opt.value === id ? opt.textContent.replace(/^\✓\s*/, '') : opt.textContent;
+            opt.textContent = isWatched ? '✓ ' + label : label;
+        });
+    }
+
+    showPlayerSkeleton();
+    if (nowPlayingIndicator) {
+        nowPlayingIndicator.innerHTML = `<i class="fas fa-play-circle"></i> ${getEpLabel(id)}`;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
@@ -209,29 +275,33 @@ async function playEpisode(id, el) {
         const data = await response.json();
 
         if (data && data.streams && data.streams.length > 0) {
-            renderPlayer(data, playerSection);
+            renderPlayer(data, mainVideoContainer);
+            renderServerSelector(data.streams);
+            if (data.downloads) renderDownloads(data.downloads);
+            hidePlayerSkeleton();
         } else {
-            playerSection.innerHTML = `
-                <div class="player-wrapper" style="padding: 100px 20px;">
-                    <div style="text-align: center;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
-                        <h3 style="color: #fff; margin-bottom: 10px;">Stream Unavailable</h3>
-                        <p style="color: #94a3b8;">This episode might be recently released or the source is down.</p>
-                    </div>
+            mainVideoContainer.innerHTML = `
+                <div class="player-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Stream Unavailable</h3>
+                    <p>This episode may be recently released or the source is down. Try another server.</p>
                 </div>
             `;
+            hidePlayerSkeleton();
         }
     } catch (error) {
         console.error("Error playing episode:", error);
-        playerSection.innerHTML = `
-            <div class="player-wrapper" style="padding: 100px 20px;">
-                <div style="text-align: center;">
-                    <i class="fas fa-wifi" style="font-size: 3rem; color: #f43f5e; margin-bottom: 20px;"></i>
-                    <h3 style="color: #fff; margin-bottom: 10px;">Connection Error</h3>
-                    <p style="color: #94a3b8;">Gagal mengambil data stream dari server. Situs sumber mungkin memblokir koneksi. Coba refresh halaman.</p>
-                </div>
+        mainVideoContainer.innerHTML = `
+            <div class="player-error">
+                <i class="fas fa-wifi-slash"></i>
+                <h3>Connection Error</h3>
+                <p>Failed to fetch stream data. The source may be blocking the connection.</p>
+                <button onclick="playEpisode('${id}')" class="hero-btn" style="margin-top:15px">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         `;
+        hidePlayerSkeleton();
     }
 }
 
@@ -240,29 +310,55 @@ function renderPlayer(data, container) {
     const defaultMirror = defaultStream.mirrors[0];
 
     container.innerHTML = `
-        <div class="player-wrapper">
-            <div class="video-container" id="mainVideoContainer">
-                <iframe src="${defaultMirror.url}" allowfullscreen scrolling="no" allow="autoplay; encrypted-media"></iframe>
-            </div>
-            
-            <div class="server-selector glass-card">
-                <div class="server-header">
-                    <i class="fas fa-satellite-dish"></i> Sources & Mirrors
-                </div>
-                <div class="server-list">
-                    ${data.streams.map((stream, sIdx) => 
-                        stream.mirrors.map((mirror, mIdx) => `
-                            <button class="server-btn ${sIdx === 0 && mIdx === 0 ? 'active' : ''}" 
-                                    onclick="changeServer(this, '${mirror.url}')">
-                                <span class="quality-badge">${stream.quality}</span>
-                                <span>${mirror.name}</span>
-                            </button>
-                        `).join('')
-                    ).join('')}
-                </div>
-            </div>
+        <iframe src="${defaultMirror.url}" allowfullscreen scrolling="no" allow="autoplay; encrypted-media"></iframe>
+    `;
+}
+
+function renderServerSelector(streams) {
+    if (!streams || streams.length === 0) {
+        serverSelector.style.display = 'none';
+        return;
+    }
+    serverSelector.style.display = '';
+
+    const qualities = [...new Set(streams.map(s => s.quality))];
+    let activeQuality = qualities[0];
+
+    serverSelector.innerHTML = `
+        <div class="server-header">
+            <i class="fas fa-satellite-dish"></i> Quality & Server
+        </div>
+        <div class="quality-group" id="qualityGroup">
+            ${qualities.map(q => `
+                <button class="quality-btn ${q === activeQuality ? 'active' : ''}" data-quality="${q}">
+                    ${q}
+                </button>
+            `).join('')}
+        </div>
+        <div class="mirror-group" id="mirrorGroup">
+            ${renderMirrorButtons(streams, activeQuality)}
         </div>
     `;
+
+    document.querySelectorAll('.quality-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const q = btn.dataset.quality;
+            document.getElementById('mirrorGroup').innerHTML = renderMirrorButtons(streams, q);
+        });
+    });
+}
+
+function renderMirrorButtons(streams, quality) {
+    const filtered = streams.filter(s => s.quality === quality);
+    const mirrors = filtered.flatMap(s => s.mirrors);
+    if (mirrors.length === 0) return '<span class="no-mirror">No servers available</span>';
+    return mirrors.map((m, i) => `
+        <button class="server-btn ${i === 0 ? 'active' : ''}" onclick="changeServer(this, '${m.url}')">
+            <i class="fas fa-server"></i> ${m.name}
+        </button>
+    `).join('');
 }
 
 function changeServer(btn, url) {
@@ -270,6 +366,62 @@ function changeServer(btn, url) {
     btn.classList.add('active');
     const iframe = document.querySelector('#mainVideoContainer iframe');
     if (iframe) iframe.src = url;
+}
+
+function renderDownloads(downloads) {
+    if (!downloads || downloads.length === 0) {
+        downloadSection.style.display = 'none';
+        return;
+    }
+    downloadSection.style.display = '';
+    downloadSection.innerHTML = `
+        <div class="download-header" onclick="this.parentElement.classList.toggle('open')">
+            <i class="fas fa-download"></i> Downloads
+            <i class="fas fa-chevron-down"></i>
+        </div>
+        <div class="download-body">
+            ${downloads.map(d => `
+                <div class="download-group">
+                    <span class="download-res">${d.resolution}</span>
+                    <div class="download-links">
+                        ${d.links.map(l => `
+                            <a href="${l.url}" target="_blank" rel="noopener" class="download-link">
+                                <i class="fas fa-cloud-download-alt"></i> ${l.name}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+async function renderRecommended(animeId) {
+    try {
+        const response = await fetch(`${API_BASE}/ongoing`);
+        const data = await response.json();
+        if (!data || data.error || !Array.isArray(data)) {
+            recommendedGrid.closest('.recommended-section').style.display = 'none';
+            return;
+        }
+        const filtered = data.filter(a => a.id !== animeId).slice(0, 10);
+        if (filtered.length === 0) {
+            recommendedGrid.closest('.recommended-section').style.display = 'none';
+            return;
+        }
+        recommendedGrid.innerHTML = filtered.map((anime, i) => `
+            <div class="anime-card" style="animation-delay: ${i * 0.05}s" onclick="window.location.href='watch.html?id=${anime.id}'">
+                <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+                <div class="card-info">
+                    <span class="ep-tag">${anime.episode || anime.status || 'NEW'}</span>
+                    <h3>${anime.title}</h3>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error("Recommended fetch error:", e);
+        recommendedGrid.closest('.recommended-section').style.display = 'none';
+    }
 }
 
 function isFavorite(id) {
@@ -280,33 +432,29 @@ function isFavorite(id) {
 function toggleFavorite(anime) {
     let favs = JSON.parse(localStorage.getItem('shonen_favs') || '[]');
     const index = favs.findIndex(f => f.id === anime.id);
-    
-    if (index > -1) {
-        favs.splice(index, 1);
-    } else {
-        favs.unshift(anime);
-    }
-    
+    if (index > -1) favs.splice(index, 1);
+    else favs.unshift(anime);
     localStorage.setItem('shonen_favs', JSON.stringify(favs));
-    
     const favBtn = document.getElementById('favBtn');
     if (favBtn) {
         const isFav = isFavorite(anime.id);
-        favBtn.style.color = isFav ? '#f43f5e' : '#fff';
+        favBtn.classList.toggle('active', isFav);
         favBtn.innerHTML = `<i class="${isFav ? 'fas' : 'far'} fa-heart"></i>`;
     }
 }
 
-// Interactive Glow Background
 const glow = document.getElementById('glow');
 if (glow) {
-    document.addEventListener('mousemove', (e) => {
-        requestAnimationFrame(() => {
-            glow.style.left = e.clientX + 'px';
-            glow.style.top = e.clientY + 'px';
-        });
-    });
+    let mx = 0, my = 0, gx = 0, gy = 0;
+    document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
+    function animateGlow() {
+        gx += (mx - gx) * 0.1;
+        gy += (my - gy) * 0.1;
+        glow.style.left = gx + 'px';
+        glow.style.top = gy + 'px';
+        requestAnimationFrame(animateGlow);
+    }
+    animateGlow();
 }
 
-// Initialize
 initWatch();

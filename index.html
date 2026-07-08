@@ -30,17 +30,17 @@
 
     <!-- Side Navigation -->
     <nav class="side-nav">
-        <div class="nav-logo">
+        <a href="index.html" class="nav-logo">
             <i class="fas fa-bolt"></i>
-        </div>
+        </a>
         <div class="nav-items">
-            <a href="#/" class="nav-item active" title="Home"><i class="fas fa-home"></i></a>
-            <a href="#/library" class="nav-item" title="Library"><i class="fas fa-film"></i></a>
-            <a href="#/schedule" class="nav-item" title="Schedule"><i class="fas fa-calendar-alt"></i></a>
-            <a href="#/favorites" class="nav-item" title="Favorites"><i class="fas fa-heart"></i></a>
+            <a href="#/" class="nav-item active" title="Home" style="animation-delay:0.05s"><i class="fas fa-home"></i></a>
+            <a href="#/library" class="nav-item" title="Library" style="animation-delay:0.1s"><i class="fas fa-film"></i></a>
+            <a href="#/schedule" class="nav-item" title="Schedule" style="animation-delay:0.15s"><i class="fas fa-calendar-alt"></i></a>
+            <a href="#/favorites" class="nav-item" title="Favorites" style="animation-delay:0.2s"><i class="fas fa-heart"></i></a>
         </div>
         <div class="nav-footer">
-            <button id="searchToggle" title="Search"><i class="fas fa-search"></i></button>
+            <button id="searchToggle" class="nav-item" title="Search" style="animation-delay:0.25s"><i class="fas fa-search"></i></button>
         </div>
     </nav>
 
@@ -84,6 +84,10 @@
                     <!-- Cards injected here -->
                 </div>
 
+                <div class="see-all-wrap">
+                    <a href="#/library" class="see-all-btn"><i class="fas fa-grid-2"></i> See All Anime</a>
+                </div>
+
             </section>
 
             <section id="mal-sections" style="margin-top: 4rem;">
@@ -106,9 +110,14 @@
             <section id="hero">
                 <h1>Explore <span class="gradient-text">Library</span></h1>
             </section>
+            <div class="library-toolbar">
+                <button type="button" class="sort-btn active" data-sort="latest">Latest</button>
+                <button type="button" class="sort-btn" data-sort="az">A-Z</button>
+                <button type="button" class="sort-btn" data-sort="za">Z-A</button>
+            </div>
             <div class="anime-grid" id="libraryGrid"></div>
             <div style="text-align: center; margin-top: 40px; margin-bottom: 40px;">
-                <button id="loadMoreLibrary" class="glass"
+                <button id="loadMoreLibrary" type="button" class="glass"
                     style="padding: 12px 40px; border-radius: 99px; color: white; cursor: pointer; border: 1px solid var(--glass-border); font-weight: 600; font-size: 1rem;">
                     <i class="fas fa-plus-circle"></i> Load More Anime
                 </button>

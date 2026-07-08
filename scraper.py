@@ -3,7 +3,7 @@ logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 try:
     import cloudscraper
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     cloudscraper = None
 import requests
 from bs4 import BeautifulSoup
@@ -97,11 +97,10 @@ class OtakudesuScraper:
         return results
 
     def get_movies(self, page=1):
-        base = f"{self.BASE_URL}/anime/"
         if page > 1:
-            url = f"{base}page/{page}/?status=completed&order=update"
+            url = f"{self.BASE_URL}/page/{page}/"
         else:
-            url = f"{base}?status=completed&order=update"
+            url = self.BASE_URL
         soup = self._get_soup(url)
         if not soup:
             return []

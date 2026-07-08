@@ -15,39 +15,67 @@
     <link rel="apple-touch-icon" href="icon.png">
 </head>
 
-
 <body>
     <div id="glow"></div>
 
-    <!-- Side Navigation -->
     <nav class="side-nav">
-        <div class="nav-logo">
+        <a href="index.html" class="nav-logo">
             <i class="fas fa-bolt"></i>
-        </div>
+        </a>
         <div class="nav-items">
-            <a href="index.html" class="nav-item" title="Home"><i class="fas fa-home"></i></a>
-            <a href="index.html#/library" class="nav-item" title="Library"><i class="fas fa-film"></i></a>
-            <a href="index.html#/schedule" class="nav-item" title="Schedule"><i class="fas fa-calendar-alt"></i></a>
-            <a href="index.html#/favorites" class="nav-item" title="Favorites"><i class="fas fa-heart"></i></a>
+            <a href="index.html" class="nav-item" title="Home" style="animation-delay:0.05s"><i class="fas fa-home"></i></a>
+            <a href="index.html#/library" class="nav-item" title="Library" style="animation-delay:0.1s"><i class="fas fa-film"></i></a>
+            <a href="index.html#/schedule" class="nav-item" title="Schedule" style="animation-delay:0.15s"><i class="fas fa-calendar-alt"></i></a>
+            <a href="index.html#/favorites" class="nav-item" title="Favorites" style="animation-delay:0.2s"><i class="fas fa-heart"></i></a>
         </div>
         <div class="nav-footer">
-            <a href="index.html" class="nav-item" title="Search"><i class="fas fa-search"></i></a>
+            <a href="index.html" class="nav-item" title="Search" style="animation-delay:0.25s"><i class="fas fa-search"></i></a>
         </div>
     </nav>
 
     <main id="app">
-        <!-- Loader -->
         <div id="loader" class="loader-container">
-            <div class="loader" style="display: block;"></div>
+            <div class="loader"></div>
         </div>
 
         <div id="watchView" class="view active">
-            <button onclick="window.history.back()" class="back-btn glass-card">
-                <i class="fas fa-arrow-left"></i> Kembali ke Beranda
-            </button>
+            <div class="watch-topbar">
+                <button onclick="window.history.back()" class="back-btn glass-card">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div id="nowPlayingIndicator" class="now-playing"></div>
+            </div>
 
-            <div id="detailContainer">
-                <!-- Data diinjeksi oleh watch.js -->
+            <div id="watchContent">
+                <section id="playerSection">
+                    <div id="playerSkeleton" class="player-skeleton">
+                        <div class="player-skel-shimmer"></div>
+                    </div>
+                    <div id="mainVideoContainer" class="video-container" style="display:none;"></div>
+                </section>
+
+                <section id="serverSelector" class="server-selector"></section>
+
+                <section id="animeInfo" class="info-grid">
+                    <div id="posterContainer" class="poster-wrapper"></div>
+                    <div id="detailMain" class="detail-main"></div>
+                </section>
+
+                <section id="episodeSection" class="episode-section">
+                    <div class="episode-header">
+                        <h3><i class="fas fa-list-ul"></i> Episodes</h3>
+                    </div>
+                    <div id="episodeGrid" class="episode-select-wrapper"></div>
+                </section>
+
+                <section id="downloadSection" class="download-section"></section>
+
+                <section id="recommendedSection" class="recommended-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-rays"></i> You May Also Like</h3>
+                    </div>
+                    <div class="horizontal-scroll" id="recommendedGrid"></div>
+                </section>
             </div>
         </div>
     </main>
