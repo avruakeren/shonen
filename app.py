@@ -1,9 +1,9 @@
 import sys, traceback
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from scraper import OtakudesuScraper
-import os, json
+import os, json, requests
 
 app = Flask(__name__)
 CORS(app)
@@ -38,6 +38,28 @@ def _scrape_or_error(fn, *args, **kwargs):
 @app.route("/api/test")
 def test_api():
     return jsonify({"status": "ok", "message": "API is reachable"})
+
+@app.route("/api/img")
+def proxy_image():
+    u = request.args.get("u", "")
+    if not u or not u.startswith("http"):
+        return jsonify({"error": "invalid url"}), 400
+    try:
+        r = requests.get(
+            u,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://samehadaku.li/",
+            },
+            timeout=20,
+        )
+        r.raise_for_status()
+        return Response(
+            r.content,
+            content_type=r.headers.get("Content-Type", "image/jpeg"),
+        )
+    except Exception as e:
+        return jsonify({"error": f"image proxy failed: {str(e)}"}), 502
 
 @app.route("/")
 def index():

@@ -14,6 +14,14 @@ import re
 class OtakudesuScraper:
     BASE_URL = "https://samehadaku.li"
 
+    @staticmethod
+    def _proxy(url):
+        if not url:
+            return url
+        if url.startswith("http"):
+            return f"/api/img?u={urllib.parse.quote(url, safe='')}"
+        return url
+
     def __init__(self):
         if cloudscraper:
             self.cs = cloudscraper.create_scraper()
@@ -78,7 +86,7 @@ class OtakudesuScraper:
             "title": title or anime_id.replace("-", " ").title(),
             "link": link,
             "id": anime_id,
-            "thumb": thumb,
+            "thumb": self._proxy(thumb),
             "episode": episode or status or "NEW",
         }
 
@@ -150,7 +158,7 @@ class OtakudesuScraper:
                     "title": title,
                     "link": link,
                     "id": anime_id,
-                    "thumb": thumb,
+                    "thumb": self._proxy(thumb),
                     "status": status,
                 })
         return results
@@ -222,7 +230,7 @@ class OtakudesuScraper:
         title_fallback = anime_id.replace("-", " ").title()
         return {
             "title": info.get("judul", title),
-            "thumb": thumb,
+            "thumb": self._proxy(thumb),
             "synopsis": synopsis,
             "info": info,
             "episodes": episodes,
@@ -299,3 +307,4 @@ class OtakudesuScraper:
                     downloads.append({"resolution": res, "links": links})
 
         return {"streams": streams, "downloads": downloads}
+

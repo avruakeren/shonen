@@ -924,7 +924,7 @@ main#app {
 }
 
 .back-btn {
-    color: white;
+    color: var(--primary);
     padding: 10px 20px;
     border-radius: 14px;
     cursor: pointer;
