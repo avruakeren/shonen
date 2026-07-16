@@ -25,6 +25,19 @@ function showLoader(show) {
     if (loader) loader.style.display = show ? 'flex' : 'none';
 }
 
+function renderSkeleton(container, count = 12) {
+    if (!container) return;
+    container.innerHTML = Array.from({ length: count }).map(() => `
+        <div class="card-skeleton">
+            <div class="skel-thumb"></div>
+            <div class="skel-body">
+                <div class="skel-line short"></div>
+                <div class="skel-line"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.remove('active'));
     if (views[viewName]) {
@@ -33,7 +46,7 @@ function showView(viewName) {
 }
 
 async function fetchOngoing() {
-    showLoader(true);
+    renderSkeleton(ongoingGrid, 12);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -164,7 +177,7 @@ async function searchAnime(query) {
     const grid = document.getElementById('searchGrid');
 
     if (queryDisplay) queryDisplay.innerText = query;
-    if (grid) grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">Searching for "' + query + '"...</p>';
+    if (grid) renderSkeleton(grid, 10);
 
     if (searchOverlay) searchOverlay.style.display = 'none';
 
@@ -363,11 +376,26 @@ function renderSchedule(data, container) {
 
 
 // Search Events
+function debounce(fn, delay) {
+    let timer = null;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+const debouncedSearch = debounce((q) => {
+    if (q && q.trim().length >= 2) searchAnime(q.trim());
+}, 500);
+
 if (searchInput) {
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             searchAnime(searchInput.value);
         }
+    });
+    searchInput.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
     });
 }
 

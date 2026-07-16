@@ -1,4 +1,4 @@
-import sys, traceback
+import sys, traceback, time
 
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
@@ -10,6 +10,53 @@ CORS(app)
 scraper = OtakudesuScraper()
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+
+# Simple cache: in-memory + /tmp file (Vercel serverless is read-only after
+# deploy, so persistent cache lives in the ephemeral /tmp per instance).
+CACHE_TTL = 900  # 15 minutes
+_mem_cache = {}
+CACHE_DIR = "/tmp/shonen_cache"
+
+
+def _cache_get(key):
+    # in-memory first
+    if key in _mem_cache:
+        ts, val = _mem_cache[key]
+        if time.time() - ts < CACHE_TTL:
+            return val
+    # file cache
+    try:
+        path = os.path.join(CACHE_DIR, key + ".json")
+        if os.path.exists(path):
+            ts = os.path.getmtime(path)
+            if time.time() - ts < CACHE_TTL:
+                with open(path, 'r', encoding='utf-8') as f:
+                    val = json.load(f)
+                    _mem_cache[key] = (ts, val)
+                    return val
+    except Exception:
+        pass
+    return None
+
+
+def _cache_set(key, val):
+    _mem_cache[key] = (time.time(), val)
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(os.path.join(CACHE_DIR, key + ".json"), 'w', encoding='utf-8') as f:
+            json.dump(val, f)
+    except Exception:
+        pass
+
+
+def _cached(fn, key, *args, **kwargs):
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
+    result = fn(*args, **kwargs)
+    if result is not None:
+        _cache_set(key, result)
+    return result
 
 def _load_data(filename):
     path = os.path.join(DATA_DIR, filename)
@@ -57,10 +104,12 @@ def proxy_image():
             timeout=25,
         )
         r.raise_for_status()
-        return Response(
+        resp = Response(
             r.content,
             content_type=r.headers.get("Content-Type", "image/jpeg"),
         )
+        resp.headers["Cache-Control"] = "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800"
+        return resp
     except Exception as e:
         return jsonify({"error": f"image proxy failed: {str(e)}"}), 502
 
@@ -84,34 +133,36 @@ def get_ongoing():
     data = _load_data('ongoing.json')
     if data is not None:
         return jsonify(data)
-    return _scrape_or_error(scraper.get_ongoing)
+    return _scrape_or_error(lambda: _cached(scraper.get_ongoing, "ongoing_1"))
 
 @app.route("/api/movies", methods=["GET"])
 def get_movies():
     page = request.args.get('page', 1, type=int)
-    return _scrape_or_error(scraper.get_movies, page=page)
+    if page > 1:
+        return _scrape_or_error(lambda: _cached(scraper.get_movies, f"movies_{page}", page=page))
+    return _scrape_or_error(lambda: _cached(scraper.get_movies, "movies_1", page=1))
 
 @app.route("/api/search", methods=["GET"])
 def search():
     query = request.args.get("q", "")
     if not query:
         return jsonify([])
-    return _scrape_or_error(scraper.search, query)
+    return _scrape_or_error(lambda: _cached(scraper.search, "search_" + query, query))
 
 @app.route("/api/details/<anime_id>", methods=["GET"])
 def get_details(anime_id):
-    return _scrape_or_error(scraper.get_details, anime_id)
+    return _scrape_or_error(lambda: _cached(scraper.get_details, "details_" + anime_id, anime_id))
 
 @app.route("/api/stream/<episode_id>", methods=["GET"])
 def get_stream(episode_id):
-    return _scrape_or_error(scraper.get_stream, episode_id)
+    return _scrape_or_error(lambda: _cached(scraper.get_stream, "stream_" + episode_id, episode_id))
 
 @app.route("/api/schedule", methods=["GET"])
 def get_schedule():
     data = _load_data('schedule.json')
     if data is not None:
         return jsonify(data)
-    return _scrape_or_error(scraper.get_schedule)
+    return _scrape_or_error(lambda: _cached(scraper.get_schedule, "schedule"))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, threaded=True, port=5000)

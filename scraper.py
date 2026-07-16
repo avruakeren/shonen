@@ -269,7 +269,24 @@ class OtakudesuScraper:
             return None
 
         streams = []
+        seen_urls = set()
 
+        def add_stream(quality, name, url):
+            if not url or url in seen_urls:
+                return
+            seen_urls.add(url)
+            host = urllib.parse.urlparse(url).netloc.replace("www.", "")
+            res_match = re.search(r'(\d{3,4}p)', (name or "") + " " + url)
+            if res_match:
+                quality = res_match.group(1)
+            existing = next((s for s in streams if s["quality"] == quality), None)
+            mirror_data = {"name": name or host or "Server", "url": url, "host": host}
+            if existing:
+                existing["mirrors"].append(mirror_data)
+            else:
+                streams.append({"quality": quality, "mirrors": [mirror_data]})
+
+        # 1) Mirror dropdown (base64 encoded iframe html)
         mirror_select = soup.select_one("select.mirror")
         if mirror_select:
             for opt in mirror_select.find_all("option"):
@@ -285,26 +302,22 @@ class OtakudesuScraper:
                     iframe_src = iframe["src"] if iframe and iframe.has_attr("src") else ""
                 except Exception:
                     iframe_src = ""
-
                 if iframe_src:
-                    quality = "480p"
-                    res_match = re.search(r'(\d{3,4}p)', label)
-                    if res_match:
-                        quality = res_match.group(1)
-                    existing = next((s for s in streams if s["quality"] == quality), None)
-                    mirror_data = {"name": label or "Server 1", "url": iframe_src}
-                    if existing:
-                        existing["mirrors"].append(mirror_data)
-                    else:
-                        streams.append({"quality": quality, "mirrors": [mirror_data]})
+                    name = re.sub(r'\s*\d{3,4}p\s*', '', label).strip() or "Server"
+                    add_stream("480p", name, iframe_src)
 
-        if not streams:
-            iframe = soup.select_one("#embed_holder iframe")
+        # 2) Fallback: #embed_holder iframe and any other embed iframes on page
+        for iframe in soup.select("#embed_holder iframe, .responsive-embed iframe, .mirrorx iframe"):
             if iframe and iframe.has_attr("src"):
-                streams.append({
-                    "quality": "480p",
-                    "mirrors": [{"name": "Server 1", "url": iframe["src"]}],
-                })
+                add_stream("480p", "Server", iframe["src"])
+
+        # 3) Generic player iframes (last resort)
+        if not streams:
+            for iframe in soup.select("iframe"):
+                src = iframe.get("src", "")
+                if src and src.startswith("http") and "doubleclick" not in src and "google" not in src:
+                    add_stream("480p", "Server", src)
+                    break
 
         downloads = []
         dl_container = soup.select_one(".download")

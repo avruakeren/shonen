@@ -158,11 +158,13 @@ function renderFallbackDetails(anime) {
 function renderAnimeInfo(anime) {
     const isFav = isFavorite(currentAnimeId);
     const info = anime.info || {};
+    const epCount = (anime.episodes || []).length;
 
     const posterHtml = `
         <div class="poster-frame">
             <div class="poster-inner">
                 <img src="${anime.thumb}" alt="${anime.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/280x400?text=No+Image'">
+                ${epCount ? `<span class="poster-ep-count">${epCount} EP</span>` : ''}
             </div>
         </div>
     `;
@@ -172,11 +174,8 @@ function renderAnimeInfo(anime) {
     if (info.score) badges.push(`<span class="info-badge score"><i class="fas fa-star"></i> ${info.score}</span>`);
     if (info.status) badges.push(`<span class="info-badge">${info.status}</span>`);
     if (info.type) badges.push(`<span class="info-badge type">${info.type}</span>`);
-    if (info.total_episode) badges.push(`<span class="info-badge eps">${info.total_episode} EP</span>`);
-    if (info.rilis) {
-        const year = info.rilis.match(/\d{4}/);
-        if (year) badges.push(`<span class="info-badge year">${year[0]}</span>`);
-    }
+    if (epCount) badges.push(`<span class="info-badge eps">${epCount} EP</span>`);
+    if (info.released) badges.push(`<span class="info-badge year">${info.released}</span>`);
 
     const genreHtml = info.genres ? `
         <div class="genre-pills">
@@ -184,10 +183,19 @@ function renderAnimeInfo(anime) {
         </div>
     ` : '';
 
-    const metaKeys = ['durasi', 'produser', 'japanese', 'skor'];
-    const metaHtml = metaKeys.filter(k => info[k]).map(k => `
+    const metaOrder = [
+        ['studio', 'Studio'],
+        ['season', 'Season'],
+        ['duration', 'Duration'],
+        ['released_on', 'Released'],
+        ['director', 'Director'],
+        ['censor', 'Censor'],
+        ['type', 'Type'],
+        ['status', 'Status'],
+    ];
+    const metaHtml = metaOrder.filter(([k]) => info[k]).map(([k, label]) => `
         <div class="meta-item">
-            <span class="meta-label">${k.replace(/_/g, ' ')}</span>
+            <span class="meta-label">${label}</span>
             <span class="meta-value">${info[k]}</span>
         </div>
     `).join('');
@@ -226,7 +234,8 @@ function renderEpisodeDropdown(episodes) {
     const select = document.createElement('select');
     select.className = 'episode-select';
     select.innerHTML = episodes.map((ep, i) => {
-        const epNum = ep.title.match(/\d+/)?.[0] || (i + 1);
+        const epMatch = ep.title.match(/episode\s*(\d+)/i);
+        const epNum = epMatch ? epMatch[1] : (i + 1);
         const isActive = ep.id === currentEpisodeId;
         const isWatched = getEpisodeProgress(currentAnimeId) === ep.id;
         const label = `EP ${epNum}${ep.title.replace(/episode\s*\d+/i, '').trim() ? ' - ' + ep.title.replace(/episode\s*\d+/i, '').trim() : ''}`;
@@ -244,7 +253,8 @@ function renderEpisodeDropdown(episodes) {
 function getEpLabel(id) {
     const ep = currentEpisodes.find(e => e.id === id);
     if (!ep) return id;
-    const num = ep.title.match(/\d+/)?.[0] || '';
+    const epMatch = ep.title.match(/episode\s*(\d+)/i);
+    const num = epMatch ? epMatch[1] : '';
     const clean = ep.title.replace(/episode\s*\d+/i, '').trim();
     return `EP ${num}${clean ? ' - ' + clean : ''}`;
 }
@@ -308,9 +318,18 @@ async function playEpisode(id) {
 function renderPlayer(data, container) {
     const defaultStream = data.streams[0];
     const defaultMirror = defaultStream.mirrors[0];
+    loadServerIntoPlayer(defaultMirror, container);
+}
 
+function loadServerIntoPlayer(mirror, container) {
     container.innerHTML = `
-        <iframe src="${defaultMirror.url}" allowfullscreen scrolling="no" allow="autoplay; encrypted-media"></iframe>
+        <iframe src="${mirror.url}" allowfullscreen scrolling="no" allow="autoplay; encrypted-media; fullscreen" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"></iframe>
+        <div class="player-source-fallback">
+            <span>Player tidak muncul?</span>
+            <a href="${mirror.url}" target="_blank" rel="noopener" class="glass-btn">
+                <i class="fas fa-external-link-alt"></i> Buka di sumber (${mirror.host || 'server'})
+            </a>
+        </div>
     `;
 }
 
@@ -355,8 +374,8 @@ function renderMirrorButtons(streams, quality) {
     const mirrors = filtered.flatMap(s => s.mirrors);
     if (mirrors.length === 0) return '<span class="no-mirror">No servers available</span>';
     return mirrors.map((m, i) => `
-        <button class="server-btn ${i === 0 ? 'active' : ''}" onclick="changeServer(this, '${m.url}')">
-            <i class="fas fa-server"></i> ${m.name}
+        <button class="server-btn ${i === 0 ? 'active' : ''}" onclick="changeServer(this, '${m.url.replace(/'/g, "\\'")}')">
+            <i class="fas fa-server"></i> ${m.name}${m.host ? ' <span class="server-host">(' + m.host + ')</span>' : ''}
         </button>
     `).join('');
 }
@@ -364,8 +383,7 @@ function renderMirrorButtons(streams, quality) {
 function changeServer(btn, url) {
     document.querySelectorAll('.server-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const iframe = document.querySelector('#mainVideoContainer iframe');
-    if (iframe) iframe.src = url;
+    loadServerIntoPlayer({ url: url, host: btn.querySelector('.server-host')?.textContent.replace(/[()]/g, '') || '' }, mainVideoContainer);
 }
 
 function renderDownloads(downloads) {
