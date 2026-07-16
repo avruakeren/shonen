@@ -19,8 +19,7 @@ class OtakudesuScraper:
         if not url:
             return url
         if url.startswith("http"):
-            # Menggunakan images.weserv.nl sebagai proxy yang lebih stabil
-            return f"https://images.weserv.nl/?url={urllib.parse.quote(url, safe='')}"
+            return f"/api/img?u={urllib.parse.quote(url, safe='')}"
         return url
 
     def __init__(self):

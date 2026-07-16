@@ -44,14 +44,17 @@ def proxy_image():
     u = request.args.get("u", "")
     if not u or not u.startswith("http"):
         return jsonify({"error": "invalid url"}), 400
+    # Strip query string (?resize= dll) agar mengambil gambar original
+    clean_url = u.split("?")[0]
     try:
         r = requests.get(
-            u,
+            clean_url,
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Referer": "https://samehadaku.li/",
+                "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*",
             },
-            timeout=20,
+            timeout=25,
         )
         r.raise_for_status()
         return Response(
