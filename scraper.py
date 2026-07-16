@@ -72,7 +72,12 @@ class OtakudesuScraper:
                 title = title_container.text.strip()
 
         thumb_el = item.select_one(".limit img")
-        thumb = thumb_el["src"] if thumb_el and thumb_el.has_attr("src") else ""
+        thumb = ""
+        if thumb_el:
+            for attr in ("data-src", "data-lazy-src", "src"):
+                if thumb_el.has_attr(attr) and thumb_el[attr] and not thumb_el[attr].startswith("data:image"):
+                    thumb = thumb_el[attr]
+                    break
 
         ep_el = item.select_one(".epx")
         episode = ep_el.text.strip() if ep_el else ""
@@ -146,7 +151,12 @@ class OtakudesuScraper:
                     title = title_container.text.strip()
 
             thumb_el = item.select_one(".limit img")
-            thumb = thumb_el["src"] if thumb_el and thumb_el.has_attr("src") else ""
+            thumb = ""
+            if thumb_el:
+                for attr in ("data-src", "data-lazy-src", "src"):
+                    if thumb_el.has_attr(attr) and thumb_el[attr] and not thumb_el[attr].startswith("data:image"):
+                        thumb = thumb_el[attr]
+                        break
 
             status_el = item.select_one(".status")
             status = status_el.text.strip() if status_el else "Unknown"
@@ -185,7 +195,12 @@ class OtakudesuScraper:
         title = title_el.text.strip() if title_el else anime_id.replace("-", " ").title()
 
         thumb_el = soup.select_one(".thumbook .thumb img")
-        thumb = thumb_el["src"] if thumb_el and thumb_el.has_attr("src") else ""
+        thumb = ""
+        if thumb_el:
+            for attr in ("data-src", "data-lazy-src", "src"):
+                if thumb_el.has_attr(attr) and thumb_el[attr] and not thumb_el[attr].startswith("data:image"):
+                    thumb = thumb_el[attr]
+                    break
 
         info = {}
         for span in soup.select(".infox .spe span"):
