@@ -10,6 +10,11 @@ const seasonTabs = document.getElementById('seasonTabs');
 const downloadSection = document.getElementById('downloadSection');
 const recommendedGrid = document.getElementById('recommendedGrid');
 const nowPlayingIndicator = document.getElementById('nowPlayingIndicator');
+// Favourite + info moved out of the info block into the topbar/modal.
+const favBtn = document.getElementById('favBtn');
+const infoToggle = document.getElementById('infoToggle');
+const infoOverlay = document.getElementById('infoOverlay');
+const infoModalClose = document.getElementById('infoModalClose');
 
 let currentAnimeId = null;
 let currentEpisodes = [];
@@ -200,16 +205,21 @@ function renderAnimeInfo(anime) {
         </div>
     `).join('');
 
+    // The heart moved into the topbar, so drive it directly instead of
+    // rendering a second button inside the info panel. toggleFavorite()
+    // finds it by id and keeps it in sync on every click.
+    if (favBtn) {
+        favBtn.classList.toggle('active', isFav);
+        favBtn.innerHTML = `<i class="${isFav ? 'fas' : 'far'} fa-heart"></i>`;
+        favBtn.onclick = () => toggleFavorite({ id: currentAnimeId, title: anime.title, thumb: anime.thumb });
+    }
+
     detailMain.innerHTML = `
         <div class="detail-header">
             <div>
                 <h2 class="anime-title">${anime.title}</h2>
                 <div class="badge-container">${badges.join('')}</div>
             </div>
-            <button onclick='toggleFavorite(${JSON.stringify({ id: currentAnimeId, title: anime.title, thumb: anime.thumb }).replace(/'/g, "&apos;")})'
-                    id="favBtn" class="glass fav-btn ${isFav ? 'active' : ''}">
-                <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
-            </button>
         </div>
 
         ${genreHtml}
@@ -220,7 +230,25 @@ function renderAnimeInfo(anime) {
     `;
 }
 
+// Keeps the "N EP" pill in .episode-header in sync with the dropdown.
+// The header lives in watch.html, so it is targeted via querySelector --
+// no markup change needed. Removed when there is nothing to count.
+function setEpisodeCountBadge(count) {
+    const header = document.querySelector('.episode-header');
+    if (!header) return;
+    const badge = header.querySelector('.ep-count-badge');
+    if (!count) {
+        if (badge) badge.remove();
+        return;
+    }
+    const el = badge || header.appendChild(document.createElement('span'));
+    el.className = 'ep-count-badge';
+    el.textContent = `${count} EP`;
+}
+
 function renderEpisodeDropdown(episodes) {
+    setEpisodeCountBadge(episodes ? episodes.length : 0);
+
     if (!episodes || episodes.length === 0) {
         episodeGrid.innerHTML = `
             <div class="ep-empty-state">
@@ -334,18 +362,24 @@ function loadServerIntoPlayer(mirror, container) {
 }
 
 function renderServerSelector(streams) {
+    // Without the server panel the episode panel has to own the whole row, so
+    // flag the bar and let CSS release that panel's max-width.
+    const controlBar = document.getElementById('controlBar');
+
     if (!streams || streams.length === 0) {
         serverSelector.style.display = 'none';
+        if (controlBar) controlBar.classList.add('is-single');
         return;
     }
     serverSelector.style.display = '';
+    if (controlBar) controlBar.classList.remove('is-single');
 
     const qualities = [...new Set(streams.map(s => s.quality))];
     let activeQuality = qualities[0];
 
     serverSelector.innerHTML = `
         <div class="server-header">
-            <i class="fas fa-satellite-dish"></i> Quality & Server
+            <i class="fas fa-satellite-dish"></i> Server
         </div>
         <div class="quality-group" id="qualityGroup">
             ${qualities.map(q => `
@@ -453,13 +487,35 @@ function toggleFavorite(anime) {
     if (index > -1) favs.splice(index, 1);
     else favs.unshift(anime);
     localStorage.setItem('shonen_favs', JSON.stringify(favs));
-    const favBtn = document.getElementById('favBtn');
     if (favBtn) {
         const isFav = isFavorite(anime.id);
         favBtn.classList.toggle('active', isFav);
         favBtn.innerHTML = `<i class="${isFav ? 'fas' : 'far'} fa-heart"></i>`;
     }
 }
+
+// --- Info modal ------------------------------------------------------------
+// Opened from the topbar. Uses the same show/hide convention as
+// .search-overlay: display flex/none driven from JS.
+function openInfo() {
+    if (infoOverlay) infoOverlay.style.display = 'flex';
+}
+
+function closeInfo() {
+    if (infoOverlay) infoOverlay.style.display = 'none';
+}
+
+if (infoToggle) infoToggle.addEventListener('click', openInfo);
+if (infoModalClose) infoModalClose.addEventListener('click', closeInfo);
+// Dismiss when the backdrop itself is clicked, not the panel.
+if (infoOverlay) {
+    infoOverlay.addEventListener('click', (e) => {
+        if (e.target === infoOverlay) closeInfo();
+    });
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeInfo();
+});
 
 const glow = document.getElementById('glow');
 if (glow) {

@@ -40,10 +40,18 @@
 
         <div id="watchView" class="view active">
             <div class="watch-topbar">
-                <button onclick="window.history.back()" class="back-btn">
-                    <i class="fas fa-arrow-left"></i> Back
+                <button onclick="window.history.back()" class="back-btn" aria-label="Go back" title="Back">
+                    <i class="fas fa-arrow-left"></i>
                 </button>
                 <div id="nowPlayingIndicator" class="now-playing"></div>
+                <div class="topbar-actions">
+                    <button id="favBtn" class="icon-btn fav-btn" aria-label="Toggle favourite" title="Favourite">
+                        <i class="far fa-heart"></i>
+                    </button>
+                    <button id="infoToggle" class="icon-btn" aria-label="Show anime info" title="Info">
+                        <i class="fas fa-circle-info"></i>
+                    </button>
+                </div>
             </div>
 
             <div id="watchContent">
@@ -54,28 +62,45 @@
                     <div id="mainVideoContainer" class="video-container" style="display:none;"></div>
                 </section>
 
-                <section id="serverSelector" class="server-selector"></section>
+                <!-- Controls live together directly under the player, so the eye
+                     never has to jump player -> info -> episodes. -->
+                <div id="controlBar" class="control-bar">
+                    <section id="serverSelector" class="server-selector"></section>
 
-                <section id="animeInfo" class="info-grid">
-                    <div id="posterContainer" class="poster-wrapper"></div>
-                    <div id="detailMain" class="detail-main"></div>
-                </section>
+                    <section id="episodeSection" class="episode-section">
+                        <div class="episode-header">
+                            <h3><i class="fas fa-list-ul"></i> Episode</h3>
+                        </div>
+                        <div id="episodeGrid" class="episode-select-wrapper"></div>
+                    </section>
 
-                <section id="episodeSection" class="episode-section">
-                    <div class="episode-header">
-                        <h3><i class="fas fa-list-ul"></i> Episodes</h3>
-                    </div>
-                    <div id="episodeGrid" class="episode-select-wrapper"></div>
-                </section>
-
-                <section id="downloadSection" class="download-section"></section>
+                    <!-- Third control column. Collapsed it is only a header; once
+                         opened it takes the whole row so the links have room. -->
+                    <section id="downloadSection" class="download-section"></section>
+                </div>
 
                 <section id="recommendedSection" class="recommended-section">
                     <div class="section-header">
-                        <h3><i class="fas fa-rays"></i> You May Also Like</h3>
+                        <h3><i class="fas fa-rays"></i> Recommended</h3>
                     </div>
                     <div class="horizontal-scroll" id="recommendedGrid"></div>
                 </section>
+            </div>
+
+            <!-- Anime info lives behind the topbar button instead of a permanent
+                 block, so the page is just player + controls. The .info-grid /
+                 #posterContainer / #detailMain hooks are kept exactly as
+                 renderAnimeInfo() writes them. -->
+            <div id="infoOverlay" class="info-overlay" style="display:none;">
+                <div class="info-modal" role="dialog" aria-modal="true" aria-label="Anime info">
+                    <button id="infoModalClose" class="info-modal-close" aria-label="Close info">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    <div id="animeInfo" class="info-grid">
+                        <div id="posterContainer" class="poster-wrapper"></div>
+                        <div id="detailMain" class="detail-main"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, io, json, time, requests
+import sys, io, json, time, re, requests
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 BASE = "http://127.0.0.1:5000"
@@ -79,8 +79,14 @@ code, d = get("/api/search?q=one+piece")
 head(f"/api/search -> {code}, {len(d) if isinstance(d, list) else d}", code == 200 and isinstance(d, list) and len(d) > 0)
 
 print("\n=== Frontend asset check ===")
+# Read the expected cache name from the source so bumping CACHE_NAME in
+# sw.js doesn't silently make this assertion go stale.
+with open("sw.js", encoding="utf-8") as fh:
+    cache_name = re.search(r"CACHE_NAME\s*=\s*'([^']+)'", fh.read()).group(1)
+
 for path, needle in [("/", "seasonalGrid"), ("/", "topGrid"), ("/script.js", "loadMalSection"),
-                     ("/watch.js", "playEpisode"), ("/sw.js", "shonen-v4")]:
+                     ("/watch.js", "playEpisode"), ("/watch.js", "setEpisodeCountBadge"),
+                     ("/sw.js", cache_name)]:
     try:
         r = requests.get(BASE + path, timeout=15)
         found = needle in r.text
