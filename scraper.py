@@ -254,72 +254,146 @@ class OtakudesuScraper:
     def get_schedule(self):
         return []
 
+    # --- embed helpers -------------------------------------------------
+    @staticmethod
+    def _decode_embed(value):
+        """Decode a base64 encoded ``<iframe src="...">`` blob into its src."""
+        if not value:
+            return ""
+        raw = value.strip()
+        # HTML-embedded blobs are often unpadded; b64decode needs a 4-char tail.
+        raw += "=" * (-len(raw) % 4)
+        for decoder in (base64.b64decode, base64.urlsafe_b64decode):
+            try:
+                decoded = decoder(raw).decode("utf-8", "replace")
+            except Exception:
+                continue
+            if "<" not in decoded and "http" not in decoded:
+                continue
+            if "<" in decoded:
+                tmp = BeautifulSoup(decoded, "html.parser")
+                iframe = tmp.find("iframe")
+                if iframe and iframe.has_attr("src"):
+                    return iframe["src"].strip()
+            # Some providers hand back a bare URL rather than an iframe tag.
+            match = re.search(r'https?://[^\s"\'<>]+', decoded)
+            if match:
+                return match.group(0).strip()
+        return ""
+
+    @staticmethod
+    def _iframe_src(iframe):
+        """Resolve an iframe's real src, skipping lazy-load placeholders."""
+        # LiteSpeed/WordPress lazy-load keeps the real URL in data-* attrs
+        # while ``src`` is a placeholder like "about:blank".
+        for attr in ("src", "data-litespeed-src", "data-src", "data-lazy-src"):
+            val = iframe.get(attr)
+            if isinstance(val, list):
+                val = " ".join(val)
+            if not val:
+                continue
+            val = val.strip()
+            if val.startswith("http") and val.lower() not in ("about:blank", "javascript:void(0)"):
+                return val
+        return ""
+
+    @staticmethod
+    def _quality_from(label, url=""):
+        """Extract a ``720p`` style label, else fall back to a group name."""
+        res_match = re.search(r'(\d{3,4})\s*p', label or "", re.IGNORECASE)
+        if res_match:
+            return f"{res_match.group(1)}p"
+        return "HD"
+
     def get_stream(self, episode_id):
         print(f"DEBUG: get_stream called for {episode_id}")
         episode_id = episode_id.strip("/")
 
-        soup = None
-        for path in [episode_id]:
-            url = f"{self.BASE_URL}/{path}/"
-            soup = self._get_soup(url)
-            if soup:
-                print(f"DEBUG: Found stream page at {url}")
-                break
+        url = f"{self.BASE_URL}/{episode_id}/"
+        soup = self._get_soup(url)
         if not soup:
             return None
+        print(f"DEBUG: Found stream page at {url}")
 
         streams = []
         seen_urls = set()
 
-        def add_stream(quality, name, url):
-            if not url or url in seen_urls:
+        def add_stream(quality, name, url_):
+            if not url_ or not url_.startswith("http"):
                 return
-            seen_urls.add(url)
-            host = urllib.parse.urlparse(url).netloc.replace("www.", "")
-            res_match = re.search(r'(\d{3,4}p)', (name or "") + " " + url)
-            if res_match:
-                quality = res_match.group(1)
+            if url_.lower() in ("about:blank", "javascript:void(0)"):
+                return
+            if url_ in seen_urls:
+                return
+            seen_urls.add(url_)
+            host = urllib.parse.urlparse(url_).netloc.replace("www.", "")
+            # Only trust the *label* for quality, never the URL: embed URLs are
+            # long random tokens that can accidentally contain digits + "p".
+            quality = self._quality_from(name, url_) if quality is None else quality
             existing = next((s for s in streams if s["quality"] == quality), None)
-            mirror_data = {"name": name or host or "Server", "url": url, "host": host}
+            mirror_data = {"name": name or host or "Server", "url": url_, "host": host}
             if existing:
                 existing["mirrors"].append(mirror_data)
             else:
                 streams.append({"quality": quality, "mirrors": [mirror_data]})
 
-        # 1) Mirror dropdown (base64 encoded iframe html)
-        mirror_select = soup.select_one("select.mirror")
-        if mirror_select:
-            for opt in mirror_select.find_all("option"):
-                val = opt.get("value", "").strip()
-                if not val:
-                    continue
-                label = opt.text.strip()
-                iframe_src = ""
-                try:
-                    decoded_html = base64.b64decode(val).decode("utf-8")
-                    tmp = BeautifulSoup(decoded_html, "html.parser")
-                    iframe = tmp.find("iframe")
-                    iframe_src = iframe["src"] if iframe and iframe.has_attr("src") else ""
-                except Exception:
-                    iframe_src = ""
-                if iframe_src:
-                    name = re.sub(r'\s*\d{3,4}p\s*', '', label).strip() or "Server"
-                    add_stream("480p", name, iframe_src)
+        # 1) Current layout: .aspd-server buttons carry a base64 <iframe> blob
+        #    (data-embed) plus a fallback direct URL (data-url).
+        for btn in soup.select(".aspd-server"):
+            label = (btn.get("data-label") or btn.get_text(" ", strip=True) or "Server").strip()
+            iframe_src = self._decode_embed(btn.get("data-embed", ""))
+            if not iframe_src:
+                iframe_src = (btn.get("data-url") or "").strip()
+            if iframe_src:
+                add_stream(self._quality_from(label), label, iframe_src)
 
-        # 2) Fallback: #embed_holder iframe and any other embed iframes on page
-        for iframe in soup.select("#embed_holder iframe, .responsive-embed iframe, .mirrorx iframe"):
-            if iframe and iframe.has_attr("src"):
-                add_stream("480p", "Server", iframe["src"])
+        # 2) The player iframe itself (lazy-loaded: real URL in data-* attrs).
+        for iframe in soup.select("#embed_holder iframe, .responsive-embed iframe, .mirrorx iframe, .player-embed iframe"):
+            src = self._iframe_src(iframe)
+            if src:
+                add_stream(None, "Server", src)
 
-        # 3) Generic player iframes (last resort)
+        # 3) Legacy layout: <select class="mirror"> with base64 encoded options.
+        for opt in soup.select("select.mirror option"):
+            val = (opt.get("value") or "").strip()
+            if not val:
+                continue
+            iframe_src = self._decode_embed(val)
+            if iframe_src:
+                label = re.sub(r'\s*\d{3,4}p\s*', '', opt.text.strip()).strip() or "Server"
+                add_stream(self._quality_from(opt.text.strip()), label, iframe_src)
+
+        # 4) Last resort: any other player iframe on the page.
         if not streams:
             for iframe in soup.select("iframe"):
-                src = iframe.get("src", "")
-                if src and src.startswith("http") and "doubleclick" not in src and "google" not in src:
-                    add_stream("480p", "Server", src)
+                src = self._iframe_src(iframe)
+                if src and "doubleclick" not in src:
+                    add_stream(None, "Server", src)
                     break
 
+        downloads = self._parse_downloads(soup)
+
+        return {"streams": streams, "downloads": downloads}
+
+    @staticmethod
+    def _parse_downloads(soup):
         downloads = []
+
+        # Current layout: flat .aspd-download anchors, e.g. "720P" -> pixeldrain.
+        grouped = {}
+        for a in soup.select(".aspd-download"):
+            href = a.get("href", "").strip()
+            if not href.startswith("http"):
+                continue
+            res = a.get_text(" ", strip=True) or "Download"
+            res = re.sub(r'^download\s*', '', res, flags=re.IGNORECASE) or "Download"
+            host = urllib.parse.urlparse(href).netloc.replace("www.", "")
+            bucket = grouped.setdefault(res, {"resolution": res, "links": []})
+            if href not in [l["url"] for l in bucket["links"]]:
+                bucket["links"].append({"name": host or "Download", "url": href})
+        downloads.extend(grouped.values())
+
+        # Legacy layout: <div class="download"><li><strong>720P</strong><a>.
         dl_container = soup.select_one(".download")
         if dl_container:
             for li in dl_container.select("li"):
@@ -334,5 +408,5 @@ class OtakudesuScraper:
                 if links:
                     downloads.append({"resolution": res, "links": links})
 
-        return {"streams": streams, "downloads": downloads}
+        return downloads
 

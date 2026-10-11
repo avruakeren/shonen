@@ -3,6 +3,7 @@ import sys, traceback, time
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from scraper import OtakudesuScraper
+import mal
 import os, json, requests
 
 app = Flask(__name__)
@@ -163,6 +164,16 @@ def get_schedule():
     if data is not None:
         return jsonify(data)
     return _scrape_or_error(lambda: _cached(scraper.get_schedule, "schedule"))
+
+@app.route("/api/seasonal", methods=["GET"])
+def get_seasonal():
+    # Seasonal/top-rated are MyAnimeList metadata (AniList/Jikan), not scraped
+    # from Samehadaku, so they are cached separately from scraper results.
+    return _scrape_or_error(lambda: _cached(mal.get_seasonal, "seasonal"))
+
+@app.route("/api/top", methods=["GET"])
+def get_top():
+    return _scrape_or_error(lambda: _cached(mal.get_top, "top_rated"))
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, threaded=True, port=5000)

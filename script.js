@@ -239,32 +239,87 @@ function renderAnime(list, container, append = false) {
 
 
 // Consolidated MyAnimeList Logic
-async function fetchMalData() {
+async function fetchMalJson(url, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const seasonalRes = await fetch("https://api.jikan.moe/v4/seasons/now?limit=10");
-        const seasonalData = await seasonalRes.json();
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
-        if (seasonalData.data) {
-            const firstAnime = seasonalData.data[0];
-            if (firstAnime && firstAnime.season) {
-                const seasonStr = firstAnime.season.charAt(0).toUpperCase() + firstAnime.season.slice(1);
-                const titleEl = document.getElementById('seasonalTitle');
-                if (titleEl) titleEl.innerHTML = `<i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime (${seasonStr} ${firstAnime.year || ''})`;
-            }
-            renderMalAnime(seasonalData.data, 'seasonalGrid', false);
+function malItems(payload) {
+    // Backend returns a bare array; direct Jikan/AniList calls return {data}.
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    return null;
+}
+
+/**
+ * Fetch one MAL section. Order of preference:
+ *   1. our backend  /api/seasonal | /api/top   (server-side, cached, multi-provider)
+ *   2. Jikan direct (legacy, may be rate-limited/blocked)
+ * Returns the item array, or null when every source failed.
+ */
+async function loadMalSection(section) {
+    const endpoints = section === 'seasonal'
+        ? [`${API_BASE}/seasonal`, "https://api.jikan.moe/v4/seasons/now?limit=12"]
+        : [`${API_BASE}/top`, "https://api.jikan.moe/v4/top/anime?limit=12"];
+
+    for (const url of endpoints) {
+        try {
+            const items = malItems(await fetchMalJson(url));
+            if (items && items.length > 0) return items;
+        } catch (e) {
+            console.warn(`MAL ${section} source failed (${url}):`, e.message || e);
         }
+    }
+    return null;
+}
 
-        // Delay for Top Rated to respect Jikan API limits
-        setTimeout(async () => {
-            try {
-                const topRes = await fetch("https://api.jikan.moe/v4/top/anime?limit=10");
-                const topData = await topRes.json();
-                if (topData.data) renderMalAnime(topData.data, 'topGrid', true);
-            } catch (e) { console.error("Top MAL Error:", e); }
-        }, 1200);
+function renderMalFallback(containerId, icon, message) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = `
+        <div style="min-width: 100%; text-align: center; padding: 30px 10px;">
+            <i class="fas ${icon}" style="font-size: 1.8rem; color: var(--text-muted);"></i>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 10px;">${message}</p>
+        </div>
+    `;
+}
 
-    } catch (error) {
-        console.error("MAL Fetch Error:", error);
+function setSeasonalTitle(items) {
+    const titleEl = document.getElementById('seasonalTitle');
+    if (!titleEl || !items || !items[0]) return;
+    const first = items.find(i => i.season);
+    if (!first || !first.season) return;
+    const seasonStr = first.season.charAt(0).toUpperCase() + first.season.slice(1);
+    titleEl.innerHTML = `<i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime (${seasonStr} ${first.year || ''})`;
+}
+
+async function fetchMalData() {
+    // Each section is loaded independently so a failure in one cannot
+    // prevent the other from rendering (the old code chained them).
+    const [seasonal, top] = await Promise.all([
+        loadMalSection('seasonal'),
+        loadMalSection('top')
+    ]);
+
+    if (seasonal) {
+        setSeasonalTitle(seasonal);
+        renderMalAnime(seasonal, 'seasonalGrid', false);
+    } else {
+        renderMalFallback('seasonalGrid', 'fa-leaf', 'Seasonal data unavailable. Coba refresh beberapa saat lagi.');
+    }
+
+    if (top) {
+        renderMalAnime(top, 'topGrid', true);
+    } else {
+        renderMalFallback('topGrid', 'fa-trophy', 'Top Rated data unavailable. Coba refresh beberapa saat lagi.');
     }
 }
 
@@ -274,7 +329,11 @@ function renderMalAnime(list, containerId, showRank = true) {
     container.innerHTML = '';
 
     list.forEach((anime, index) => {
-        const title = anime.title_english || anime.title;
+        const title = anime.title_english || anime.title || 'Unknown';
+        const thumb = anime.images?.webp?.large_image_url
+            || anime.images?.jpg?.large_image_url
+            || '';
+        const score = anime.score != null ? anime.score : 'N/A';
         const card = document.createElement('div');
         card.className = showRank ? 'anime-card anime-card-rank' : 'anime-card';
         card.style.animationDelay = `${index * 0.05}s`;
@@ -283,21 +342,24 @@ function renderMalAnime(list, containerId, showRank = true) {
             <span class="rank-number">${String(anime.rank || (index + 1)).padStart(2, '0')}</span>
         ` : '';
 
+        const infoHtml = `
+            <div class="card-info">
+                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${score}</span>
+                <h3>${title}</h3>
+            </div>
+        `;
+
+        const imgHtml = `<img src="${thumb}" alt="${title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">`;
+
         const innerHtml = showRank ? `
             ${rankHtml}
             <div class="rank-card-content">
-                <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb" loading="lazy">
-                <div class="card-info">
-                    <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
-                    <h3>${title}</h3>
-                </div>
+                ${imgHtml}
+                ${infoHtml}
             </div>
         ` : `
-            <img src="${anime.images.webp.large_image_url}" alt="${title}" class="card-thumb" loading="lazy">
-            <div class="card-info">
-                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${anime.score || 'N/A'}</span>
-                <h3>${title}</h3>
-            </div>
+            ${imgHtml}
+            ${infoHtml}
         `;
 
         card.innerHTML = innerHtml;
