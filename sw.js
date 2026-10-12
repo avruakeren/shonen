@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shonen-v9';
+const CACHE_NAME = 'shonen-v10';
 const ASSETS = [
   './',
   './index.html',

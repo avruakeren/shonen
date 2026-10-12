@@ -369,5 +369,21 @@ watch_cards = body_of(".recommended-section .horizontal-scroll .anime-card")
 check("watch-page cards scoped down to 170px",
       bool(watch_cards) and "170px" in watch_cards)
 
+print("\n=== 14. Cursor-following glow removed ===")
+# The div, its rule and the rAF loop must all go together: script.js leaned on
+# the implicit window.glow created by the id, so leaving any one behind would
+# either resurrect the effect or throw a ReferenceError.
+check("#glow element gone from both pages", 'id="glow"' not in html)
+check("#glow rule gone from CSS",
+      not any(h == "#glow" for h, _b, _m in HEADS))
+check("no animateGlow left in JS", "animateGlow" not in js)
+check("no mousemove listener left in JS", "mousemove" not in js)
+check("no dangling getElementById('glow')", "getElementById('glow')" not in js)
+check("no leftover placeholder for the removed const",
+      "glowRemoved" not in js)
+# The colour token itself stays -- it still drives the card/player shadows.
+check("--primary-glow token kept for the static shadows",
+      "--primary-glow" in css)
+
 print("\n" + ("ALL CHECKS PASSED" if not fails else f"FAILED: {fails}"))
 sys.exit(1 if fails else 0)

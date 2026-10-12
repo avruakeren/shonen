@@ -517,18 +517,4 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeInfo();
 });
 
-const glow = document.getElementById('glow');
-if (glow) {
-    let mx = 0, my = 0, gx = 0, gy = 0;
-    document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
-    function animateGlow() {
-        gx += (mx - gx) * 0.1;
-        gy += (my - gy) * 0.1;
-        glow.style.left = gx + 'px';
-        glow.style.top = gy + 'px';
-        requestAnimationFrame(animateGlow);
-    }
-    animateGlow();
-}
-
 initWatch();

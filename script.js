@@ -633,25 +633,3 @@ async function initApp() {
 }
 
 initApp();
-
-// Interactive Glow Background with Smoothing
-let mouseX = 0, mouseY = 0;
-let glowX = 0, glowY = 0;
-
-document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-});
-
-function animateGlow() {
-    const lerp = 0.1; // Kelembutan pergerakan
-    glowX += (mouseX - glowX) * lerp;
-    glowY += (mouseY - glowY) * lerp;
-
-    if (glow) {
-        glow.style.left = `${glowX}px`;
-        glow.style.top = `${glowY}px`;
-    }
-    requestAnimationFrame(animateGlow);
-}
-animateGlow();
