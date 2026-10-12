@@ -450,9 +450,16 @@ check("script.js hands the ambient the current poster",
 
 # The banner is frameless: no radius, no shadow, no backing card -- its own
 # artwork is the whole surface, and the light spills out of it page-wide.
+# Every rule counts, not just the first: body_of() stops at the desktop one,
+# which is how a border-radius survived in the mobile override.
 hero = body_of(".hero-carousel") or ""
-check("banner has lost its frame",
-      "border-radius" not in hero and "box-shadow" not in hero, hero[:60])
+hero_bodies = [b for h, b, _m in HEADS
+               if any(p.strip() == ".hero-carousel" for p in h.split(","))]
+check("banner rules were all found", len(hero_bodies) >= 1, str(len(hero_bodies)))
+check("banner has lost its frame in every rule",
+      all("border-radius" not in b and "box-shadow" not in b
+          for b in hero_bodies),
+      str([b.strip().split("\n")[0] for b in hero_bodies]))
 check("banner still clips its sliding track", "overflow: hidden" in hero)
 hero_bg = body_of(".hero-bg") or ""
 check("poster fills its slide edge to edge",
