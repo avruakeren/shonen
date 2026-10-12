@@ -118,6 +118,7 @@ function renderHeroCarousel(items) {
     });
 
     track.innerHTML = slidesHtml;
+    setHeroAmbient(track, 0);
 
     if (dotsContainer) {
         dotsContainer.innerHTML = items.map((_, i) =>
@@ -126,6 +127,18 @@ function renderHeroCarousel(items) {
     }
 
     setupHeroNav(items.length);
+}
+
+/* Hands the ambient wash behind the page the poster that is on screen right
+   now. CSS cannot transition background-image between slides, so the swap
+   happens here; the layer is blurred to 90px first, which is why a hard cut
+   reads as a change of light rather than a change of picture. */
+function setHeroAmbient(track, index) {
+    const slide = track.children[index];
+    const bg = slide && slide.querySelector('.hero-bg');
+    if (bg && bg.style.backgroundImage) {
+        document.documentElement.style.setProperty('--hero-ambient', bg.style.backgroundImage);
+    }
 }
 
 function setupHeroNav(total) {
@@ -140,6 +153,7 @@ function setupHeroNav(total) {
         if (index >= total) index = 0;
         heroIndex = index;
         track.style.left = `-${index * 100}%`;
+        setHeroAmbient(track, index);
 
         document.querySelectorAll('.hero-dot').forEach(dot => {
             dot.classList.toggle('active', parseInt(dot.dataset.index) === index);

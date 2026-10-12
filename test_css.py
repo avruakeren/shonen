@@ -62,6 +62,22 @@ def body_of(sel, media=False):
     return None
 
 
+def grouped_body_of(sel):
+    """Like body_of(), but for a selector that shares a rule with others.
+
+    `.hero-prev, .hero-next` has a head that is the whole list, so an exact
+    match finds nothing. Controls that are only ever styled together stay
+    together, which is why this does not replace body_of(): the rhythm
+    checks above need to tell the grouped surface apart from the per-section
+    rule that sets its own padding."""
+    for h, b, m in HEADS:
+        if m:
+            continue
+        if sel in [s.strip() for s in h.split(",")]:
+            return b
+    return None
+
+
 print("=== 1. Brace balance (no truncated rule) ===")
 check(f"{{ {stripped.count('{')} == }} {stripped.count('}')}",
       stripped.count("{") == stripped.count("}"))
@@ -384,6 +400,107 @@ check("no leftover placeholder for the removed const",
 # The colour token itself stays -- it still drives the card/player shadows.
 check("--primary-glow token kept for the static shadows",
       "--primary-glow" in css)
+
+print("\n=== 15. Glass material shared by controls and their bases ===")
+root = body_of(":root") or ""
+FLAT = re.compile(r"background:\s*rgba\(255,\s*255,\s*255")
+
+
+def token_body(name, text):
+    m = re.search(re.escape(name) + r"\s*:\s*([^;]+);", text, re.S)
+    return m.group(1) if m else ""
+
+
+MATERIAL = ["--glass-btn-bg", "--glass-active-bg", "--glass-cta-bg",
+            "--glass-rose-bg", "--glass-blur", "--glass-lift"]
+for tok in MATERIAL:
+    # The fill has to be a single colour. A layered gradient here would be
+    # the edge trick creeping back in, which this pass deliberately dropped.
+    v = token_body(tok, root)
+    check(f"{tok} defined as a flat value", bool(v) and "gradient" not in v,
+          v[:60])
+
+# Anything wearing the glass material stays flat, whatever the fill is.
+gradient_material = [h for h, b, _m in HEADS
+                     if "gradient" in b and "--glass" in b]
+check("no material rule mixes in a gradient", not gradient_material,
+      str(gradient_material))
+
+# A token typo would silently drop the background rather than fail loudly.
+defined = set(re.findall(r"(--[a-z0-9-]+)\s*:", root))
+referenced = set(re.findall(r"var\(\s*(--[a-z0-9-]+)", css))
+check("every referenced token is defined",
+      not (referenced - defined), str(sorted(referenced - defined)))
+
+# Ambient field: fixed and pinned, and lit by the poster on screen rather
+# than by an abstract gradient -- the wash changes as the carousel advances.
+before = body_of("body::before")
+check("ambient field exists on body::before", before is not None)
+check("ambient sits behind every in-flow block",
+      bool(before) and "position: fixed" in before and "z-index: -1" in before)
+check("ambient takes its colour from the active poster",
+      bool(before) and "var(--hero-ambient)" in before)
+check("ambient is no longer an abstract gradient",
+      bool(before) and "gradient" not in before, before.strip()[:60])
+check("ambient never tracks the pointer",
+      "mousemove" not in js and 'id="glow"' not in html)
+check("script.js hands the ambient the current poster",
+      "--hero-ambient" in js and js.count("setHeroAmbient(") >= 3,
+      str(js.count("setHeroAmbient(")))
+
+# The banner is frameless: no radius, no shadow, no backing card -- its own
+# artwork is the whole surface, and the light spills out of it page-wide.
+hero = body_of(".hero-carousel") or ""
+check("banner has lost its frame",
+      "border-radius" not in hero and "box-shadow" not in hero, hero[:60])
+check("banner still clips its sliding track", "overflow: hidden" in hero)
+hero_bg = body_of(".hero-bg") or ""
+check("poster fills its slide edge to edge",
+      "inset: 0" in hero_bg and "cover" in hero_bg, hero_bg[:60])
+
+CONTROLS = [".hero-btn", ".sort-btn", ".see-all-btn", ".back-btn", ".icon-btn",
+            ".quality-btn", ".server-btn", ".fav-btn", ".glass-btn", ".nav-item",
+            ".hero-prev", ".hero-next", ".download-link", ".info-modal-close",
+            "#mobileSearchBtn", ".search-bar button", ".glass"]
+for sel in CONTROLS:
+    b = grouped_body_of(sel) or ""
+    # Three things at once: it goes through a token rather than hard-coding
+    # its own alpha, no flat white fill is left behind, and it takes
+    # --glass-border -- the edge is the border now, so leaving it off would
+    # leave a control with no outline at all.
+    check(f"{sel} carries the material and edges itself",
+          "--glass" in b and not FLAT.search(b)
+          and "border: 1px solid var(--glass-border)" in b,
+          b.strip().split("\n")[0][:50])
+
+# States must stay translucent. The old stylesheet filled hover/active with
+# solid --primary, which is exactly what this material cannot do.
+# Pseudo-elements are excluded: `.nav-item::after` is the indigo bar that
+# marks the current page, and it has always been solid on purpose.
+states = [h for h, b, _m in HEADS
+          if "::" not in h and any(h.startswith(s + ":") for s in CONTROLS)]
+opaque = [h for h, b, _m in HEADS
+          if h in states and re.search(r"background:\s*var\(--primary\)", b)]
+check("no control state falls back to a solid fill", not opaque, str(opaque))
+
+# The CTA stays the one control wearing indigo, or hierarchy is gone.
+cta_users = [h for h, b, _m in HEADS if "--glass-cta-bg" in b and h != ":root"]
+check("only the hero CTA uses the indigo fill", cta_users == [".hero-btn"],
+      str(cta_users))
+
+# backdrop-filter is a compositing pass per element. It earns its keep only
+# where there is detail behind to bend; a chip on an already-frosted base
+# has none, so it keeps the edge and skips the blur.
+CHIPS = [".sort-btn", ".quality-btn", ".server-btn", ".fav-btn", ".nav-item",
+         ".download-link", ".info-modal-close", ".search-bar button"]
+over_blurred = [s for s in CHIPS if "backdrop-filter" in (body_of(s) or "")]
+check("chips on a frosted base skip their own blur", not over_blurred,
+      str(over_blurred))
+for sel in [".side-nav", ".watch-topbar", ".search-bar", ".back-btn",
+            ".icon-btn", ".hero-btn"]:
+    check(f"{sel} frosts its backdrop", "backdrop-filter" in (body_of(sel) or ""))
+
+check("controls expose a keyboard focus indicator", "focus-visible" in stripped)
 
 print("\n" + ("ALL CHECKS PASSED" if not fails else f"FAILED: {fails}"))
 sys.exit(1 if fails else 0)
