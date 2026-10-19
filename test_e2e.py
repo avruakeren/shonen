@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, io, json, time, re, requests
+import sys, io, json, time, re, requests, urllib.parse
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 BASE = "http://127.0.0.1:5000"
@@ -74,6 +74,28 @@ if items:
             print(f"        {q['quality']} / {m['name']} -> {m['url'][:88]}")
     if (d or {}).get("downloads"):
         print(f"        downloads: {[(x['resolution'], len(x['links'])) for x in d['downloads']]}")
+
+# The homepage badges the newest episode, but a series page lags one behind
+# and leaves it out of its own list -- so watch.html used to open one episode
+# short of the card that was clicked. scraper._follow_newest_episodes() walks
+# the episode pages' rel="next" chain to close that gap. Sample a few badged
+# titles: the detail list has to reach the number on the card.
+print("\n=== Detail list reaches the homepage badge ===")
+sampled = matched = 0
+for item in items:
+    if sampled >= 3:
+        break
+    badge = int(re.sub(r"\D", "", item.get("episode", "")) or 0)
+    if badge < 2:
+        continue
+    code, d = get("/api/details/" + urllib.parse.quote(item["id"], safe=""), timeout=90)
+    eps = (d or {}).get("episodes") or []
+    sampled += 1
+    matched += 1 if len(eps) >= badge else 0
+    head(f"{item['id'][:40]} -> {len(eps)} eps, badge says {item['episode']}",
+         code == 200 and len(eps) >= badge)
+
+head(f"{matched}/{sampled} sampled titles reach their badge", sampled > 0 and matched == sampled)
 
 code, d = get("/api/search?q=one+piece")
 head(f"/api/search -> {code}, {len(d) if isinstance(d, list) else d}", code == 200 and isinstance(d, list) and len(d) > 0)

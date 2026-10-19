@@ -173,6 +173,57 @@ class OtakudesuScraper:
                 })
         return results
 
+    @staticmethod
+    def _episode_number(li):
+        """Episode number from a list row, or None when the site omits it."""
+        num_el = li.select_one(".epl-num")
+        match = re.search(r'\d+', num_el.get_text(strip=True) if num_el else "")
+        return int(match.group(0)) if match else None
+
+    @staticmethod
+    def _same_series(link, anime_id):
+        """Guard for following rel="next": never leave the series we started on."""
+        return urllib.parse.unquote(anime_id) in urllib.parse.unquote(link)
+
+    def _follow_newest_episodes(self, episodes, anime_id, max_hops=3):
+        """Append the episodes the series page has not listed yet.
+
+        A series page lags one episode behind the homepage: it advertises a
+        "New Episode" in .lastend that its own .eplister list still lacks, so
+        the newest episode never reaches watch.html. Episode pages chain with
+        <a rel="next">, and that chain is scoped to the series -- the newest
+        episode of a series carries no rel="next" even while newer posts exist
+        elsewhere on the site -- so walking it completes the list.
+        """
+        if not episodes:
+            return episodes
+
+        seen = {ep["link"] for ep in episodes}
+        page = self._get_soup(episodes[-1]["link"])
+        for _ in range(max_hops):
+            if not page:
+                break
+            anchor = page.select_one('a[rel="next"]')
+            link = (anchor.get("href") if anchor and anchor.has_attr("href") else "").strip()
+            # Stop at the end of the chain, on a repeat, or if it ever drifts
+            # out of this series.
+            if not link or link in seen or not self._same_series(link, anime_id):
+                break
+            seen.add(link)
+
+            page = self._get_soup(link)
+            if not page:
+                break
+            title_el = page.select_one(".entry-title")
+            episodes.append({
+                "title": title_el.get_text(strip=True) if title_el else link,
+                "link": link,
+                "id": link.rstrip("/").split("/")[-1],
+                # Only the series list carries a date; an episode page has none.
+                "date": "",
+            })
+        return episodes
+
     def get_details(self, anime_id):
         print(f"DEBUG: get_details called for {anime_id}")
         anime_id = re.sub(r'-episode-\d+.*$', '', anime_id.rstrip("/"))
@@ -240,7 +291,18 @@ class OtakudesuScraper:
                     "link": link,
                     "id": ep_id,
                     "date": date,
+                    # Ordering only; stripped again before this is returned.
+                    "_num": self._episode_number(li),
                 })
+
+        # The rows are written oldest-first today, but _follow_newest_episodes
+        # needs the newest last, so order by number instead of trusting the
+        # markup. The sort is stable, so a legacy layout with no numbers keeps
+        # whatever order it arrived in.
+        episodes.sort(key=lambda ep: (ep["_num"] is None, ep["_num"] or 0))
+        episodes = self._follow_newest_episodes(episodes, anime_id)
+        for ep in episodes:
+            ep.pop("_num", None)
 
         title_fallback = anime_id.replace("-", " ").title()
         return {
