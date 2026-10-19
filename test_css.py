@@ -461,6 +461,14 @@ check("banner has lost its frame in every rule",
           for b in hero_bodies),
       str([b.strip().split("\n")[0] for b in hero_bodies]))
 check("banner still clips its sliding track", "overflow: hidden" in hero)
+# Full-bleed: the banner subtracts --hero-inset-x to reach the screen edges and
+# its copy adds the same token back, so the words stay where they were while
+# the poster moves. Both sides have to name it -- a literal on one side only
+# would let the two drift apart the moment the app column changed.
+hero_copy = body_of(".hero-content") or ""
+check("the full-bleed banner and its copy share one inset",
+      "--hero-inset-x" in hero and "--hero-inset-x" in hero_copy,
+      f"banner={('--hero-inset-x' in hero)} copy={('--hero-inset-x' in hero_copy)}")
 hero_bg = body_of(".hero-bg") or ""
 check("poster fills its slide edge to edge",
       "inset: 0" in hero_bg and "cover" in hero_bg, hero_bg[:60])

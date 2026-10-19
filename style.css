@@ -33,6 +33,17 @@
     --glass-blur: blur(20px);
     --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
+    /* The app column's geometry. The full-bleed banner has to cancel exactly
+       these two, so they are named instead of repeated -- and they stay in
+       step with main#app by construction rather than by agreement. */
+    --nav-w: 80px;
+    --app-pad-x: 5vw;
+
+    /* What a full-bleed element gives up to reach the screen edge, and what
+       the copy sitting on top of one has to add back to stay put. The banner
+       subtracts this, its text adds it, so the two cannot drift apart. */
+    --hero-inset-x: calc(var(--nav-w) + var(--app-pad-x));
+
     /* Set by script.js to whichever hero poster is on screen. Declared here
        so the layer has a real value before JS runs, and on pages that never
        run a carousel -- it stays empty rather than guessing a colour. */
@@ -89,8 +100,8 @@ input:focus-visible {
 
 /* --- LAYOUT STRUCTURE --- */
 main#app {
-    margin-left: 80px;
-    padding: 2rem 5%;
+    margin-left: var(--nav-w);
+    padding: 2rem var(--app-pad-x);
     min-height: 100vh;
     transition: all 0.3s;
 }
@@ -110,7 +121,7 @@ main#app {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 80px;
+    width: var(--nav-w);
     background: var(--glass);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -213,7 +224,15 @@ main#app {
 /* --- HERO CAROUSEL --- */
 .hero-carousel {
     position: relative;
-    width: 100%;
+    /* Full-bleed: the poster has to meet both screen edges, so the banner
+       cancels the rail offset and the app's side padding outright. A negative
+       percentage cannot do it -- a child's margin resolves against the padded
+       content box, while the padding resolved against the viewport -- so the
+       cancel amount is a token shared with main#app instead of a guess.
+       100vw also clears the vertical scrollbar's sliver, which body's
+       overflow-x: hidden trims rather than turning into a sideways scroll. */
+    width: 100vw;
+    margin-left: calc(-1 * var(--hero-inset-x));
     height: 42vh;
     min-height: 280px;
     max-height: 460px;
@@ -267,8 +286,13 @@ main#app {
 .hero-content {
     position: relative;
     z-index: 2;
+    /* The banner is full-bleed, so the copy re-insets itself by exactly what
+       the banner gave up. That leaves the words on the same pixels they always
+       sat on while the poster runs to the edges -- and max-width grows with
+       the padding so the text column keeps its old width. */
     padding: 3rem 4rem;
-    max-width: 560px;
+    padding-left: calc(var(--hero-inset-x) + 4rem);
+    max-width: calc(560px + var(--hero-inset-x));
     animation: fadeIn 0.8s ease-out;
 }
 
@@ -1882,9 +1906,15 @@ main#app {
 }
 
 @media (max-width: 768px) {
+    /* The rail moves to the bottom bar, so the column starts at the screen edge
+       and only the app's own padding is left for the banner to cancel. */
+    :root {
+        --nav-w: 0px;
+        --app-pad-x: 1rem;
+    }
+
     main#app {
-        margin-left: 0;
-        padding: 1rem 1rem 100px;
+        padding: 1rem var(--app-pad-x) 100px;
     }
 
     .side-nav {
@@ -1933,6 +1963,7 @@ main#app {
 
     .hero-content {
         padding: 1.5rem;
+        padding-left: calc(var(--hero-inset-x) + 1.5rem);
         max-width: 100%;
     }
 
