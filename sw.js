@@ -1,11 +1,14 @@
-const CACHE_NAME = 'shonen-v17';
+const VERSION = '18';
+const CACHE_NAME = `shonen-v${VERSION}`;
 const ASSETS = [
   './',
   './index.html',
   './watch.html',
-  './style.css',
-  './script.js',
-  './watch.js',
+  // Versioned to match the links the pages carry, so a worker still holding
+  // the previous cache misses these instead of answering with the old file.
+  `./style.css?v=${VERSION}`,
+  `./script.js?v=${VERSION}`,
+  `./watch.js?v=${VERSION}`,
   './manifest.json',
   './icon.png'
 ];

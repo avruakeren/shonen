@@ -101,14 +101,23 @@ code, d = get("/api/search?q=one+piece")
 head(f"/api/search -> {code}, {len(d) if isinstance(d, list) else d}", code == 200 and isinstance(d, list) and len(d) > 0)
 
 print("\n=== Frontend asset check ===")
-# Read the expected cache name from the source so bumping CACHE_NAME in
-# sw.js doesn't silently make this assertion go stale.
+# Read the expected version from the source so bumping it in sw.js doesn't
+# silently make these assertions go stale.
 with open("sw.js", encoding="utf-8") as fh:
-    cache_name = re.search(r"CACHE_NAME\s*=\s*'([^']+)'", fh.read()).group(1)
+    version = re.search(r"VERSION\s*=\s*'([^']+)'", fh.read()).group(1)
+
+# The pages ask for style.css?v=... so a worker still holding the previous
+# cache misses rather than answering with the old stylesheet. That only holds
+# while the number in the HTML matches the one in sw.js.
+for page, script in (("index.html", "script.js"), ("watch.html", "watch.js")):
+    with open(page, encoding="utf-8") as fh:
+        html = fh.read()
+    wanted = [f"style.css?v={version}", f"{script}?v={version}"]
+    head(f"{page} asks for v={version}", all(w in html for w in wanted))
 
 for path, needle in [("/", "seasonalGrid"), ("/", "topGrid"), ("/script.js", "loadMalSection"),
                      ("/watch.js", "playEpisode"), ("/watch.js", "setEpisodeCountBadge"),
-                     ("/sw.js", cache_name)]:
+                     ("/sw.js", f"VERSION = '{version}'")]:
     try:
         r = requests.get(BASE + path, timeout=15)
         found = needle in r.text
