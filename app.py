@@ -1,16 +1,28 @@
-import sys, traceback, time
+import ipaddress, json, logging, socket, sys, time
+import urllib.parse
 
-from flask import Flask, jsonify, request, send_from_directory, Response
+import requests
+from flask import Flask, Response, abort, jsonify, request, send_from_directory
 from flask_cors import CORS
-from scraper import OtakudesuScraper
+
 import mal
-import os, json, requests
+from scraper import NotFound, OtakudesuScraper
+
+# The Windows console defaults to cp1252, and a single "★" in a scraped title
+# used to raise inside a print() and surface as a 502. Logging downgrades
+# undecodable characters instead of raising, and reconfiguring the streams
+# keeps anything else that prints from taking the request down with it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
+logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(message)s")
 
 app = Flask(__name__)
 CORS(app)
 scraper = OtakudesuScraper()
-
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 # Simple cache: in-memory + /tmp file (Vercel serverless is read-only after
 # deploy, so persistent cache lives in the ephemeral /tmp per instance).
@@ -59,51 +71,89 @@ def _cached(fn, key, *args, **kwargs):
         _cache_set(key, result)
     return result
 
-def _load_data(filename):
-    path = os.path.join(DATA_DIR, filename)
-    try:
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                print(f"Loaded {filename} ({len(data)} items)")
-                return data
-    except Exception as e:
-        print(f"Error loading {path}: {e}")
-    print(f"FALLBACK: scraping {filename}")
-    return None
-
 def _scrape_or_error(fn, *args, **kwargs):
     try:
         result = fn(*args, **kwargs)
-        if result is None:
-            return jsonify({"error": "No data returned from source", "data": None}), 502
-        return jsonify(result)
+    except NotFound as e:
+        # The source answered and the page is not there, so this is a genuine
+        # 404 rather than the 502 an upstream outage produces.
+        return jsonify({"error": f"not found: {e}", "data": None}), 404
     except Exception as e:
-        traceback.print_exc()
-        print(f"Scraper error: {e}", file=sys.stderr)
+        logging.exception("scraper error")
         return jsonify({"error": f"Scraping failed: {str(e)}", "data": None}), 502
+    if result is None:
+        return jsonify({"error": "No data returned from source", "data": None}), 502
+    return jsonify(result)
 
 @app.route("/api/test")
 def test_api():
     return jsonify({"status": "ok", "message": "API is reachable"})
 
+# The proxy is reachable by anyone, so it must not double as an open relay into
+# the deployment's own network. Only the image hosts the scraper actually emits
+# are allowed: samehadaku's own host, and the Jetpack CDN (i0-i3.wp.com) it
+# serves most thumbnails through.
+ALLOWED_IMAGE_HOSTS = ("samehadaku.li", "wp.com")
+IMAGE_MAX_REDIRECTS = 3
+
+
+def _image_url_allowed(raw):
+    """True only for an http(s) URL on an allowed host that resolves publicly.
+
+    The address check is what stops ``u=http://<allowed-host>`` from being
+    pointed at an internal name, and it also covers hostnames that resolve to
+    private ranges rather than spelling them out.
+    """
+    try:
+        parts = urllib.parse.urlsplit(raw)
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return False
+    host = parts.hostname.lower()
+    if not any(host == allowed or host.endswith("." + allowed) for allowed in ALLOWED_IMAGE_HOSTS):
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return False
+    return True
+
+
 @app.route("/api/img")
 def proxy_image():
     u = request.args.get("u", "")
-    if not u or not u.startswith("http"):
+    if not u:
         return jsonify({"error": "invalid url"}), 400
     # Strip query string (?resize= dll) agar mengambil gambar original
     clean_url = u.split("?")[0]
+    if not _image_url_allowed(clean_url):
+        return jsonify({"error": "url not allowed"}), 403
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://samehadaku.li/",
+        "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*",
+    }
     try:
-        r = requests.get(
-            clean_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Referer": "https://samehadaku.li/",
-                "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*",
-            },
-            timeout=25,
-        )
+        # Chase redirects by hand so every hop is checked too -- requests would
+        # otherwise follow one straight to an internal address.
+        url = clean_url
+        for _ in range(IMAGE_MAX_REDIRECTS):
+            r = requests.get(url, headers=headers, timeout=25, allow_redirects=False)
+            if not r.is_redirect:
+                break
+            url = urllib.parse.urljoin(url, r.headers.get("Location", ""))
+            if not _image_url_allowed(url):
+                return jsonify({"error": "redirect not allowed"}), 403
+        else:
+            return jsonify({"error": "too many redirects"}), 502
         r.raise_for_status()
         resp = Response(
             r.content,
@@ -122,26 +172,33 @@ def index():
 def watch():
     return send_from_directory('.', 'watch.html')
 
+# The frontend only ever asks for these by name. Everything else sitting in the
+# deploy directory -- scraper.py, app.py, requirements.txt, .git/, the test
+# suites -- used to be downloadable straight off the site by this catch-all.
+PUBLIC_FILES = frozenset({
+    "index.html", "watch.html",
+    "style.css", "script.js", "watch.js", "sw.js",
+    "manifest.json", "icon.png",
+})
+
+
 @app.route("/<path:path>")
 def static_proxy(path):
+    if path not in PUBLIC_FILES:
+        abort(404)
     return send_from_directory('.', path)
 
 @app.route("/api/ongoing", methods=["GET"])
 def get_ongoing():
     page = request.args.get('page', 1, type=int)
-    if page > 1:
-        return _scrape_or_error(scraper.get_ongoing, page=page)
-    data = _load_data('ongoing.json')
-    if data is not None:
-        return jsonify(data)
-    return _scrape_or_error(lambda: _cached(scraper.get_ongoing, "ongoing_1"))
+    return _scrape_or_error(lambda: _cached(scraper.get_ongoing, f"ongoing_{page}", page=page))
 
-@app.route("/api/movies", methods=["GET"])
-def get_movies():
+@app.route("/api/library", methods=["GET"])
+def get_library():
+    """The Library view ("See All Anime") pages the site-wide archive, which is
+    the same listing /api/ongoing reads -- there is no separate movies feed."""
     page = request.args.get('page', 1, type=int)
-    if page > 1:
-        return _scrape_or_error(lambda: _cached(scraper.get_movies, f"movies_{page}", page=page))
-    return _scrape_or_error(lambda: _cached(scraper.get_movies, "movies_1", page=1))
+    return _scrape_or_error(lambda: _cached(scraper.get_ongoing, f"library_{page}", page=page))
 
 @app.route("/api/search", methods=["GET"])
 def search():
@@ -160,10 +217,7 @@ def get_stream(episode_id):
 
 @app.route("/api/schedule", methods=["GET"])
 def get_schedule():
-    data = _load_data('schedule.json')
-    if data is not None:
-        return jsonify(data)
-    return _scrape_or_error(lambda: _cached(scraper.get_schedule, "schedule"))
+    return _scrape_or_error(lambda: _cached(mal.get_schedule, "schedule"))
 
 @app.route("/api/seasonal", methods=["GET"])
 def get_seasonal():

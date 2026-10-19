@@ -10,5 +10,6 @@ test.py
 .agent/
 .DS_Store
 Thumbs.db
+.commitmsg
 
 .vercel

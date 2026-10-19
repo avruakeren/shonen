@@ -446,7 +446,7 @@ function renderSchedule(data, container) {
                 `).join('')}
             </div>
         `;
-        scheduleContainer.appendChild(dayDiv);
+        container.appendChild(dayDiv);
     });
 }
 
@@ -545,7 +545,7 @@ async function fetchLibrary(page = 1, append = false) {
     if (loadMoreBtn) { loadMoreBtn.disabled = true; loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...'; }
 
     try {
-        const response = await fetch(`${API_BASE}/movies?page=${page}`);
+        const response = await fetch(`${API_BASE}/library?page=${page}`);
         const data = await response.json();
         
         if (data && data.error) throw new Error(data.error);
@@ -596,25 +596,37 @@ if (loadMoreLibrary) {
     };
 }
 
+/**
+ * Weekly schedule. Same order of preference as loadMalSection: our backend
+ * first (server-side, cached, survives a blocked Jikan), then Jikan directly
+ * as the legacy fallback, reshaped into the same [{day, anime}] form.
+ */
+async function loadSchedule() {
+    try {
+        const fromApi = await fetchMalJson(`${API_BASE}/schedule`);
+        if (Array.isArray(fromApi) && fromApi.length > 0) return fromApi;
+    } catch (e) {
+        console.warn('Schedule from API failed:', e.message || e);
+    }
+
+    const json = await fetchMalJson('https://api.jikan.moe/v4/schedules');
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    return days.map(day => ({
+        day: day.charAt(0).toUpperCase() + day.slice(1),
+        anime: (json.data || [])
+            .filter(ep => (ep.broadcast?.day || '').toLowerCase() === day)
+            .map(ep => ({
+                title: ep.title_english || ep.title,
+                id: '',
+            }))
+    })).filter(d => d.anime.length > 0);
+}
+
 async function fetchSchedule() {
     showLoader(true);
     try {
-        const response = await fetch('https://api.jikan.moe/v4/schedules');
-        const json = await response.json();
-        if (json.error) throw new Error(json.error);
-
-        const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-        const schedule = days.map(day => ({
-            day: day.charAt(0).toUpperCase() + day.slice(1),
-            anime: (json.data || [])
-                .filter(ep => (ep.broadcast?.day || '').toLowerCase() === day)
-                .map(ep => ({
-                    title: ep.title_english || ep.title,
-                    mal_id: ep.mal_id,
-                    id: '',
-                }))
-        })).filter(d => d.anime.length > 0);
-
+        const schedule = await loadSchedule();
+        if (!schedule.length) throw new Error('Jadwal sedang tidak tersedia');
         renderSchedule(schedule, scheduleContainer);
     } catch (e) {
         console.error(e);

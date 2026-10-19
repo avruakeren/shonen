@@ -123,7 +123,7 @@ print("\n=== 5. Section rhythm (all four share the same card + spacing) ===")
 SHARED = {".server-selector", ".episode-section", ".download-section", ".recommended-section"}
 grouped = [h for h, _b, m in HEADS
            if not m and set(s.strip() for s in h.split(",")) >= SHARED]
-check("shared glass-card rule covers all 4 sections", bool(grouped))
+check("shared glass surface rule covers all 4 sections", bool(grouped))
 if grouped:
     gb = next(b for h, b, m in HEADS if h == grouped[0])
     check("shared rule has margin-bottom: 20px", "margin-bottom: 20px" in gb)
@@ -264,13 +264,13 @@ check("both headers share the same margin-bottom (their rows must align)",
 check("episode h3 is no longer oversized (1.15rem)", "1.15rem" not in eh3)
 
 print("\n=== 11. Labels: text where it is needed, icons where it is not ===")
-# Section labels must be readable again -- an ambiguous icon (fa-rays) or a
-# lone download chip is not self-explanatory.
+# Section labels must be readable again -- an ambiguous icon or a lone download
+# chip is not self-explanatory.
 for label, needle in [
     ("server label", "fa-satellite-dish\"></i> Server"),
     ("episode label", "fa-list-ul\"></i> Episode"),
     ("download label", "fa-download\"></i> Downloads"),
-    ("recommended label", "fa-rays\"></i> Recommended"),
+    ("recommended label", "fa-thumbs-up\"></i> Recommended"),
 ]:
     check(f"{label} restored", needle in watch_html or needle in js)
 
@@ -287,7 +287,7 @@ check("no stale mobile rescale of the recommended label",
       not any(m and h == ".recommended-section .section-header h3"
               for h, _b, m in HEADS))
 
-for icon in ["fa-arrow-left", "fa-list-ul", "fa-rays", "fa-satellite-dish",
+for icon in ["fa-arrow-left", "fa-list-ul", "fa-thumbs-up", "fa-satellite-dish",
              "fa-download", "fa-chevron-down", "fa-circle-info"]:
     check(f"{icon} still present", icon in watch_html or icon in js)
 

@@ -42,8 +42,8 @@
         </div>
     </nav>
 
-    <!-- Top Bar (Mobile/Search) -->
-    <div class="top-bar">
+    <!-- Mobile header + search overlay -->
+    <div>
         <div class="search-overlay" id="searchOverlay" style="display: none;">
             <div class="search-bar">
                 <button id="executeSearch"><i class="fas fa-search"></i></button>
@@ -83,7 +83,7 @@
                 </div>
 
                 <div class="see-all-wrap">
-                    <a href="#/library" class="see-all-btn"><i class="fas fa-grid-2"></i> See All Anime</a>
+                    <a href="#/library" class="see-all-btn"><i class="fas fa-table-cells"></i> See All Anime</a>
                 </div>
 
             </section>
@@ -103,10 +103,10 @@
             </section>
         </div>
 
-        <!-- Library View (Movies/Complete) -->
+        <!-- Library View (every anime, paged from the site archive) -->
         <div id="libraryView" class="view">
-            <section id="hero">
-                <h1>Explore <span class="gradient-text">Library</span></h1>
+            <section>
+                <h1>Explore Library</h1>
             </section>
             <div class="library-toolbar">
                 <button type="button" class="sort-btn active" data-sort="latest">Latest</button>
@@ -141,7 +141,7 @@
         <!-- Search View -->
         <div id="searchView" class="view">
             <div class="section-header">
-                <h2>Search Results for: <span id="searchQueryText" class="gradient-text">...</span></h2>
+                <h2>Search Results for: <span id="searchQueryText">...</span></h2>
             </div>
             <div class="anime-grid" id="searchGrid"></div>
         </div>

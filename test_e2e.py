@@ -115,3 +115,51 @@ for path, needle in [("/", "seasonalGrid"), ("/", "topGrid"), ("/script.js", "lo
         head(f"{path} contains '{needle}'", r.status_code == 200 and found)
     except Exception as e:
         head(f"{path} -> {e}", False)
+
+print("\n=== Only the frontend's own files are served ===")
+# The catch-all used to hand out the whole deploy directory, source included.
+for path, expect in [("/index.html", 200), ("/style.css", 200), ("/watch.js", 200),
+                     ("/sw.js", 200), ("/manifest.json", 200), ("/icon.png", 200),
+                     ("/app.py", 404), ("/scraper.py", 404), ("/mal.py", 404),
+                     ("/requirements.txt", 404), ("/vercel.json", 404),
+                     ("/.gitignore", 404), ("/.git/config", 404),
+                     ("/test_css.py", 404), ("/deploy.bat", 404)]:
+    try:
+        r = requests.get(BASE + path, timeout=15)
+        head(f"{path} -> {r.status_code} (want {expect})", r.status_code == expect)
+    except Exception as e:
+        head(f"{path} -> {e}", False)
+
+print("\n=== /api/img is not an open proxy ===")
+for label, target in [("loopback service", "http://127.0.0.1:5000/api/test"),
+                      ("unrelated host", "http://example.com/"),
+                      ("non-http scheme", "file:///etc/passwd"),
+                      ("cloud metadata", "http://169.254.169.254/latest/meta-data/")]:
+    r = requests.get(BASE + "/api/img", params={"u": target}, timeout=25)
+    head(f"{label} refused -> {r.status_code}", r.status_code == 403)
+
+thumb = next((it.get("thumb", "") for it in items if str(it.get("thumb", "")).startswith("/api/img")), "")
+if thumb:
+    r = requests.get(BASE + thumb, timeout=40)
+    ctype = r.headers.get("Content-Type", "")
+    head(f"a real thumbnail still proxies ({ctype})", r.status_code == 200 and ctype.startswith("image/"))
+else:
+    head("no proxied thumbnail to sample", False)
+
+print("\n=== A missing title is a 404, not a 502 ===")
+for path in ["/api/details/this-title-does-not-exist-9f3a2b",
+             "/api/stream/this-episode-does-not-exist-9f3a2b"]:
+    code, _d = get(path, timeout=90)
+    head(f"{path[:52]} -> {code}", code == 404)
+
+print("\n=== /api/library and /api/schedule ===")
+code, d = get("/api/library?page=2", timeout=90)
+lib = d if isinstance(d, list) else []
+head(f"/api/library?page=2 -> {code}, {len(lib)} items", code == 200 and len(lib) > 0)
+
+code, d = get("/api/schedule", timeout=90)
+sched = d if isinstance(d, list) else []
+days = [row.get("day", "") for row in sched if isinstance(row, dict)]
+total = sum(len(row.get("anime") or []) for row in sched if isinstance(row, dict))
+head(f"/api/schedule -> {code}, {len(sched)} days / {total} entries", code == 200 and len(sched) >= 5)
+print(f"        days: {days}")

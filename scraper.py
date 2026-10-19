@@ -1,5 +1,4 @@
 import logging
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 try:
     import cloudscraper
@@ -10,6 +9,16 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import base64
 import re
+
+
+class NotFound(Exception):
+    """The source answered, and the page it was asked for does not exist.
+
+    This is deliberately separate from a scraper failure: a missing title is a
+    404 for the caller, while an outage has to stay a 502 so it gets retried
+    instead of looking like an empty result.
+    """
+
 
 class OtakudesuScraper:
     BASE_URL = "https://samehadaku.li"
@@ -32,16 +41,29 @@ class OtakudesuScraper:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         })
 
-    def _get_soup(self, url):
+    def _fetch(self, url):
+        """Fetch ``url`` as ``(soup, status)``.
+
+        ``soup`` is None when the request failed. ``status`` is the last HTTP
+        status seen, or None when no response ever arrived (DNS failure,
+        timeout, ...). get_details()/get_stream() rely on that difference to
+        tell "this page does not exist" apart from "the source is down".
+        """
         headers = {"User-Agent": self.session.headers.get("User-Agent", "Mozilla/5.0")}
+        status = None
         for attempt, client in enumerate([self.cs, self.session], start=1):
             if not client:
                 continue
             try:
                 resp = client.get(url, timeout=15, headers=headers)
+                status = resp.status_code
                 resp.raise_for_status()
-                return BeautifulSoup(resp.content, "lxml")
+                return BeautifulSoup(resp.content, "lxml"), status
             except Exception as e:
+                # raise_for_status() parks the response on the exception; after
+                # a connection error there is nothing new to read, so the last
+                # status we did see is the best answer available.
+                status = getattr(getattr(e, "response", None), "status_code", status)
                 logging.warning(f"[Attempt {attempt}] {type(client).__name__} request failed for {url}: {e}")
                 if isinstance(client, type(self.cs)) and "Cloudflare" in str(e):
                     logging.info("Cloudscraper challenge detected, falling back to requests session")
@@ -49,11 +71,18 @@ class OtakudesuScraper:
 
         try:
             resp = requests.get(url, timeout=15, headers=headers)
+            status = resp.status_code
             resp.raise_for_status()
-            return BeautifulSoup(resp.content, "lxml")
+            return BeautifulSoup(resp.content, "lxml"), status
         except Exception as e:
-            print(f"Final fallback request also failed for {url}: {e}")
-            return None
+            status = getattr(getattr(e, "response", None), "status_code", status)
+            logging.warning(f"Final fallback request also failed for {url}: {e}")
+            return None, status
+
+    def _get_soup(self, url):
+        """The parsed page, or None. Callers that need to know *why* it is None
+        should use _fetch() instead."""
+        return self._fetch(url)[0]
 
     def _parse_anime_item(self, item):
         a = item.find("a")
@@ -96,24 +125,14 @@ class OtakudesuScraper:
         }
 
     def get_ongoing(self, page=1):
+        """Newest posts, one page at a time.
+
+        Page 1 is the home listing; later pages are the site-wide archive. The
+        Library view pages through exactly this, which is why there is no
+        separate "movies" listing -- samehadaku.li has no such page (its menu
+        only offers Home / AZ List / Random), so /api/library reuses this.
+        """
         url = f"{self.BASE_URL}/page/{page}/" if page > 1 else self.BASE_URL
-        soup = self._get_soup(url)
-        if not soup:
-            return []
-
-        items = soup.select(".listupd article.bs")
-        results = []
-        for item in items:
-            parsed = self._parse_anime_item(item)
-            if parsed:
-                results.append(parsed)
-        return results
-
-    def get_movies(self, page=1):
-        if page > 1:
-            url = f"{self.BASE_URL}/page/{page}/"
-        else:
-            url = self.BASE_URL
         soup = self._get_soup(url)
         if not soup:
             return []
@@ -225,20 +244,25 @@ class OtakudesuScraper:
         return episodes
 
     def get_details(self, anime_id):
-        print(f"DEBUG: get_details called for {anime_id}")
         anime_id = re.sub(r'-episode-\d+.*$', '', anime_id.rstrip("/"))
 
         soup = None
+        statuses = []
         for path in [f"anime/{anime_id}", anime_id]:
             url = f"{self.BASE_URL}/{path}/"
-            print(f"DEBUG: Trying {url}")
-            soup = self._get_soup(url)
-            if soup and (soup.select_one(".infox") or soup.select_one(".thumbook")):
-                print(f"DEBUG: Found details at {url}")
+            candidate, status = self._fetch(url)
+            statuses.append(status)
+            if candidate and (candidate.select_one(".infox") or candidate.select_one(".thumbook")):
+                soup = candidate
                 break
 
-        if not soup:
-            print(f"DEBUG: No details found for {anime_id}")
+        if soup is None:
+            # A 404/410 -- or a 200 that turns out not to be a series page --
+            # means the title does not exist. Anything else (timeout, 5xx,
+            # Cloudflare block) means we could not tell, and that has to stay a
+            # 502 so the caller retries rather than caching a phantom miss.
+            if all(s in (200, 404, 410) for s in statuses):
+                raise NotFound(anime_id)
             return None
 
         title_el = soup.select_one(".entry-title")
@@ -304,7 +328,6 @@ class OtakudesuScraper:
         for ep in episodes:
             ep.pop("_num", None)
 
-        title_fallback = anime_id.replace("-", " ").title()
         return {
             "title": info.get("judul", title),
             "thumb": self._proxy(thumb),
@@ -312,9 +335,6 @@ class OtakudesuScraper:
             "info": info,
             "episodes": episodes,
         }
-
-    def get_schedule(self):
-        return []
 
     # --- embed helpers -------------------------------------------------
     @staticmethod
@@ -360,22 +380,22 @@ class OtakudesuScraper:
         return ""
 
     @staticmethod
-    def _quality_from(label, url=""):
-        """Extract a ``720p`` style label, else fall back to a group name."""
+    def _quality_from(label):
+        """Extract a ``720p`` style label, else fall back to a generic ``HD``."""
         res_match = re.search(r'(\d{3,4})\s*p', label or "", re.IGNORECASE)
         if res_match:
             return f"{res_match.group(1)}p"
         return "HD"
 
     def get_stream(self, episode_id):
-        print(f"DEBUG: get_stream called for {episode_id}")
         episode_id = episode_id.strip("/")
 
         url = f"{self.BASE_URL}/{episode_id}/"
-        soup = self._get_soup(url)
+        soup, status = self._fetch(url)
         if not soup:
+            if status in (404, 410):
+                raise NotFound(episode_id)
             return None
-        print(f"DEBUG: Found stream page at {url}")
 
         streams = []
         seen_urls = set()
@@ -391,7 +411,7 @@ class OtakudesuScraper:
             host = urllib.parse.urlparse(url_).netloc.replace("www.", "")
             # Only trust the *label* for quality, never the URL: embed URLs are
             # long random tokens that can accidentally contain digits + "p".
-            quality = self._quality_from(name, url_) if quality is None else quality
+            quality = self._quality_from(name) if quality is None else quality
             existing = next((s for s in streams if s["quality"] == quality), None)
             mirror_data = {"name": name or host or "Server", "url": url_, "host": host}
             if existing:

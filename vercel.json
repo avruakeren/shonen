@@ -6,7 +6,6 @@
       "src": "app.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "data/**",
         "maxDuration": 30
       }
     },

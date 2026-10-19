@@ -6,7 +6,6 @@ const serverSelector = document.getElementById('serverSelector');
 const posterContainer = document.getElementById('posterContainer');
 const detailMain = document.getElementById('detailMain');
 const episodeGrid = document.getElementById('episodeGrid');
-const seasonTabs = document.getElementById('seasonTabs');
 const downloadSection = document.getElementById('downloadSection');
 const recommendedGrid = document.getElementById('recommendedGrid');
 const nowPlayingIndicator = document.getElementById('nowPlayingIndicator');
@@ -125,7 +124,7 @@ async function initWatch() {
         } catch (fallbackError) {
             console.error("Fallback failed:", fallbackError);
             document.getElementById('watchContent').innerHTML = `
-                <div class="error-state glass-card">
+                <div class="error-state">
                     <i class="fas fa-exclamation-circle"></i>
                     <h3>Failed to Load</h3>
                     <p>Can't connect to the server. Please check your connection and try again.</p>
@@ -331,7 +330,7 @@ async function playEpisode(id) {
         console.error("Error playing episode:", error);
         mainVideoContainer.innerHTML = `
             <div class="player-error">
-                <i class="fas fa-wifi-slash"></i>
+                <i class="fas fa-triangle-exclamation"></i>
                 <h3>Connection Error</h3>
                 <p>Failed to fetch stream data. The source may be blocking the connection.</p>
                 <button onclick="playEpisode('${id}')" class="hero-btn" style="margin-top:15px">
