@@ -34,15 +34,23 @@
     --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
     /* The app column's geometry. The full-bleed banner has to cancel exactly
-       these two, so they are named instead of repeated -- and they stay in
-       step with main#app by construction rather than by agreement. */
+       these, so they are named instead of repeated -- and they stay in step
+       with main#app by construction rather than by agreement. */
     --nav-w: 80px;
     --app-pad-x: 5vw;
+    --app-pad-top: 2rem;
 
-    /* What a full-bleed element gives up to reach the screen edge, and what
+    /* The mobile bar is sticky and in flow, so on a phone the banner has to
+       clear its height as well as the padding. Applied to the bar itself, so
+       the number cannot disagree with the thing it measures. */
+    --mobile-bar-h: 74px;
+
+    /* What a full-bleed element gives up to reach the screen edges, and what
        the copy sitting on top of one has to add back to stay put. The banner
-       subtracts this, its text adds it, so the two cannot drift apart. */
+       subtracts these, its text adds --hero-inset-x back, so the two cannot
+       drift apart. --hero-inset-y is only the climb to the top edge. */
     --hero-inset-x: calc(var(--nav-w) + var(--app-pad-x));
+    --hero-inset-y: var(--app-pad-top);
 
     /* Set by script.js to whichever hero poster is on screen. Declared here
        so the layer has a real value before JS runs, and on pages that never
@@ -101,7 +109,7 @@ input:focus-visible {
 /* --- LAYOUT STRUCTURE --- */
 main#app {
     margin-left: var(--nav-w);
-    padding: 2rem var(--app-pad-x);
+    padding: var(--app-pad-top) var(--app-pad-x);
     min-height: 100vh;
     transition: all 0.3s;
 }
@@ -224,15 +232,17 @@ main#app {
 /* --- HERO CAROUSEL --- */
 .hero-carousel {
     position: relative;
-    /* Full-bleed: the poster has to meet both screen edges, so the banner
-       cancels the rail offset and the app's side padding outright. A negative
-       percentage cannot do it -- a child's margin resolves against the padded
-       content box, while the padding resolved against the viewport -- so the
-       cancel amount is a token shared with main#app instead of a guess.
+    /* Full-bleed: the poster has to meet the screen edges and the top, so the
+       banner cancels the rail offset, the app's padding and -- on a phone --
+       the sticky bar outright. A negative percentage cannot do it: a child's
+       margin resolves against the padded content box, while the padding
+       resolved against the viewport, so the two never cancel. The cancel
+       amounts are therefore tokens shared with main#app and the bar.
        100vw also clears the vertical scrollbar's sliver, which body's
        overflow-x: hidden trims rather than turning into a sideways scroll. */
     width: 100vw;
     margin-left: calc(-1 * var(--hero-inset-x));
+    margin-top: calc(-1 * var(--hero-inset-y));
     height: 42vh;
     min-height: 280px;
     max-height: 460px;
@@ -799,6 +809,9 @@ main#app {
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
+    /* Fixed to the token the full-bleed banner cancels, so the two cannot
+       disagree; centred, so the logo sits the same whatever the webfont does. */
+    height: var(--mobile-bar-h);
     position: sticky;
     top: 0;
     z-index: 1001;
@@ -1907,14 +1920,17 @@ main#app {
 
 @media (max-width: 768px) {
     /* The rail moves to the bottom bar, so the column starts at the screen edge
-       and only the app's own padding is left for the banner to cancel. */
+       and only the app's own padding is left for the banner to cancel -- plus
+       the sticky header, which sits between the column and the top edge. */
     :root {
         --nav-w: 0px;
         --app-pad-x: 1rem;
+        --app-pad-top: 1rem;
+        --hero-inset-y: calc(var(--app-pad-top) + var(--mobile-bar-h));
     }
 
     main#app {
-        padding: 1rem var(--app-pad-x) 100px;
+        padding: var(--app-pad-top) var(--app-pad-x) 100px;
     }
 
     .side-nav {

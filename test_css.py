@@ -469,6 +469,14 @@ hero_copy = body_of(".hero-content") or ""
 check("the full-bleed banner and its copy share one inset",
       "--hero-inset-x" in hero and "--hero-inset-x" in hero_copy,
       f"banner={('--hero-inset-x' in hero)} copy={('--hero-inset-x' in hero_copy)}")
+# The same has to hold downwards: the banner climbs by --hero-inset-y, and that
+# token is only trustworthy while main#app's padding and the mobile bar's height
+# are themselves taken from it rather than written out twice.
+app_rule = body_of("main#app") or ""
+bar_rule = body_of(".mobile-header") or ""
+check("the climb to the top is taken from the column's and the bar's own tokens",
+      "--hero-inset-y" in hero and "--app-pad-top" in app_rule and "--mobile-bar-h" in bar_rule,
+      f"banner={('--hero-inset-y' in hero)} app={('--app-pad-top' in app_rule)} bar={('--mobile-bar-h' in bar_rule)}")
 hero_bg = body_of(".hero-bg") or ""
 check("poster fills its slide edge to edge",
       "inset: 0" in hero_bg and "cover" in hero_bg, hero_bg[:60])
