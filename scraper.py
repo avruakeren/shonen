@@ -40,6 +40,10 @@ class OtakudesuScraper:
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         })
+        # Newest episode each card on the listing pages pointed at, keyed by
+        # series. A listing is the freshest place a slug appears, so it doubles
+        # as the episode hint for a details request that arrives without one.
+        self._latest_episodes_cache = {}
 
     def _fetch(self, url):
         """Fetch ``url`` as ``(soup, status)``.
@@ -116,10 +120,17 @@ class OtakudesuScraper:
         slug = link.rstrip("/").split("/")[-1]
         anime_id = re.sub(r'-episode-\d+.*$', '', slug)
 
+        self._latest_episodes_cache[anime_id] = {
+            "ep_slug": slug,
+            "ep_link": link,
+            "episode": episode,
+        }
+
         return {
             "title": title or anime_id.replace("-", " ").title(),
             "link": link,
             "id": anime_id,
+            "episode_id": slug,
             "thumb": self._proxy(thumb),
             "episode": episode or status or "NEW",
         }
@@ -243,7 +254,72 @@ class OtakudesuScraper:
             })
         return episodes
 
-    def get_details(self, anime_id):
+    def _add_hinted_episode(self, episodes, anime_id, latest_ep_hint):
+        """Make sure the episode a listing pointed at is in the list.
+
+        The listing pages advertise episodes the series page has not published
+        yet, and watch.html arrives with the one that was clicked as ``?ep=``.
+        _follow_newest_episodes normally closes that gap by walking rel="next",
+        but that walk depends on the source's markup; when the hint names an
+        episode the walk missed, read the sidebar of that episode page and add
+        the rows it has. Existing rows are never replaced -- the list keeps its
+        numbering either way -- so a stale sidebar cannot shorten it.
+        """
+        target = (latest_ep_hint or "").strip()
+        if not target:
+            hint = getattr(self, "_latest_episodes_cache", {}).get(anime_id) or {}
+            target = hint.get("ep_link", "")
+        if not target:
+            return episodes
+
+        url = target if target.startswith("http") else f"{self.BASE_URL}/{target.strip('/')}/"
+        target_id = url.rstrip("/").split("/")[-1]
+        if any(ep["id"] == target_id for ep in episodes):
+            return episodes
+
+        try:
+            soup = self._get_soup(url)
+        except Exception as e:
+            logging.warning(f"Episode hint scrape error for {url}: {e}")
+            return episodes
+        if not soup:
+            return episodes
+
+        container = soup.select_one(".episodelist ul") or soup.select_one(".bxcl.epcheck ul")
+        if not container:
+            return episodes
+
+        seen = {ep["id"] for ep in episodes}
+        added = 0
+        for li in container.find_all("li"):
+            a = li.find("a")
+            if not a or not a.has_attr("href"):
+                continue
+            link = a["href"].strip()
+            ep_id = link.rstrip("/").split("/")[-1]
+            # Dedup by slug: a sidebar links the same episode as the series
+            # page, sometimes with a different URL shape.
+            if not link or ep_id in seen:
+                continue
+            seen.add(ep_id)
+
+            title_el = li.select_one(".epl-title") or li.select_one(".playinfo h3") or li.find("h3") or a
+            date_el = li.select_one(".epl-date") or li.select_one(".playinfo span")
+
+            episodes.append({
+                "title": title_el.get_text(strip=True) if title_el else a.get_text(strip=True),
+                "link": link,
+                "id": ep_id,
+                "date": date_el.get_text(strip=True) if date_el else "",
+                "_num": self._episode_number(li),
+            })
+            added += 1
+
+        if added:
+            logging.info(f"Episode hint {url} added {added} episode(s) missing from {anime_id}")
+        return episodes
+
+    def get_details(self, anime_id, latest_ep_hint=None):
         anime_id = re.sub(r'-episode-\d+.*$', '', anime_id.rstrip("/"))
 
         soup = None
@@ -325,6 +401,11 @@ class OtakudesuScraper:
         # whatever order it arrived in.
         episodes.sort(key=lambda ep: (ep["_num"] is None, ep["_num"] or 0))
         episodes = self._follow_newest_episodes(episodes, anime_id)
+        episodes = self._add_hinted_episode(episodes, anime_id, latest_ep_hint)
+        # The hint can contribute a row that belongs mid-list, so order again.
+        # Rows the walk added carry no number and .get() keeps those last,
+        # which is where the newest episodes belong.
+        episodes.sort(key=lambda ep: (ep.get("_num") is None, ep.get("_num") or 0))
         for ep in episodes:
             ep.pop("_num", None)
 

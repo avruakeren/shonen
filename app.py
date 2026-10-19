@@ -209,6 +209,18 @@ def search():
 
 @app.route("/api/details/<anime_id>", methods=["GET"])
 def get_details(anime_id):
+    # watch.html asks for the episode it is about to play by name, and adds a
+    # ?t= cache-buster. Either one means "the list has to be what the source
+    # says right now", so the 15-minute cache must not answer it -- a series
+    # page that gained an episode a minute ago still has to show it.
+    ep_hint = request.args.get("ep", "")
+    if request.args.get("t") or ep_hint:
+        def _fresh():
+            result = scraper.get_details(anime_id, latest_ep_hint=ep_hint)
+            if result is not None:
+                _cache_set("details_" + anime_id, result)
+            return result
+        return _scrape_or_error(_fresh)
     return _scrape_or_error(lambda: _cached(scraper.get_details, "details_" + anime_id, anime_id))
 
 @app.route("/api/stream/<episode_id>", methods=["GET"])

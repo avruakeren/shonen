@@ -71,14 +71,17 @@ async function initWatch() {
     showPlayerSkeleton();
 
     try {
-        const response = await fetch(`${API_BASE}/details/${id}`);
+        const epParam = ep ? `&ep=${encodeURIComponent(ep)}` : '';
+        // ?t= keeps the 15-minute cache from answering: the episode the
+        // homepage card just advertised has to be in this list.
+        const response = await fetch(`${API_BASE}/details/${id}?t=${Date.now()}${epParam}`);
         if (!response.ok) throw new Error("Anime not found");
         const data = await response.json();
 
         if (data && !data.error) {
             renderDetails(data);
             const targetEp = ep
-                ? data.episodes.find(e => e.id === ep || e.id.endsWith(ep))
+                ? data.episodes.find(e => e.id === ep || e.id.endsWith(ep) || ep.includes(e.id))
                 : null;
             if (targetEp) {
                 playEpisode(targetEp.id);

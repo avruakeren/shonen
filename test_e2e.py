@@ -97,6 +97,26 @@ for item in items:
 
 head(f"{matched}/{sampled} sampled titles reach their badge", sampled > 0 and matched == sampled)
 
+print("\n=== A listing's episode survives the details round trip ===")
+# watch.html arrives with the episode the card advertised (?ep=) and a ?t=
+# cache-buster, and the API has to hand that episode back -- fresh, once.
+card = next((it for it in items if it.get("episode_id")), None)
+if card:
+    query = "/api/details/%s?t=1&ep=%s" % (
+        urllib.parse.quote(card["id"], safe=""),
+        urllib.parse.quote(card["episode_id"], safe=""),
+    )
+    code, d = get(query, timeout=120)
+    eps = (d or {}).get("episodes") or []
+    ids = [e["id"] for e in eps]
+    head(f"hinted {card['id'][:30]} -> {len(eps)} eps, hint present",
+         code == 200 and card["episode_id"] in ids)
+    head("hinted list has no duplicate episodes", len(ids) == len(set(ids)))
+    head(f"hint is the newest row ({ids[-1][-30:] if ids else '-'})",
+         bool(ids) and ids[-1] == card["episode_id"])
+else:
+    head("a listing card carried episode_id", False)
+
 code, d = get("/api/search?q=one+piece")
 head(f"/api/search -> {code}, {len(d) if isinstance(d, list) else d}", code == 200 and isinstance(d, list) and len(d) > 0)
 

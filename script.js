@@ -109,7 +109,7 @@ function renderHeroCarousel(items) {
                 <div class="hero-bg" style="background-image: url('${item.thumb}')"></div>
                 <div class="hero-content">
                     <h2 class="hero-title">${item.title}</h2>
-                    <a href="watch.html?id=${item.id}" class="hero-btn">
+                    <a href="watch.html?id=${item.id}${item.episode_id ? '&ep=' + encodeURIComponent(item.episode_id) : ''}" class="hero-btn">
                         <i class="fas fa-play"></i> Watch Now
                     </a>
                 </div>
@@ -245,7 +245,8 @@ function renderAnime(list, container, append = false) {
         `;
         card.onclick = () => {
             console.log("Navigating to anime:", anime.id);
-            window.location.href = `watch.html?id=${anime.id}`;
+            const epParam = anime.episode_id ? `&ep=${encodeURIComponent(anime.episode_id)}` : '';
+            window.location.href = `watch.html?id=${anime.id}${epParam}`;
         };
         container.appendChild(card);
     });
