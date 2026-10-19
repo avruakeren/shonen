@@ -238,10 +238,11 @@ main#app {
        margin resolves against the padded content box, while the padding
        resolved against the viewport, so the two never cancel. The cancel
        amounts are therefore tokens shared with main#app and the bar.
-       100vw also clears the vertical scrollbar's sliver, which body's
-       overflow-x: hidden trims rather than turning into a sideways scroll. */
-    width: 100vw;
+       The width is left auto on purpose. Cancelling both side margins puts
+       the box on the layout viewport exactly; asking for 100vw instead would
+       add the scrollbar's ~15px back as hidden overflow. */
     margin-left: calc(-1 * var(--hero-inset-x));
+    margin-right: calc(-1 * var(--app-pad-x));
     margin-top: calc(-1 * var(--hero-inset-y));
     height: 42vh;
     min-height: 280px;
