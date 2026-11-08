@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shonen | Streaming Anime</title>
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="shortcut icon" href="icon.png">
@@ -17,8 +17,14 @@
     <meta name="format-detection" content="telephone=no">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- The posters come from two CDNs; warming them here saves a TLS round
+         trip on the first card instead of paying it while the grid is empty. -->
+    <link rel="preconnect" href="https://i0.wp.com">
+    <link rel="preconnect" href="https://cdn.myanimelist.net">
+    <link rel="dns-prefetch" href="https://api.jikan.moe">
     <link rel="manifest" href="manifest.json">
     <meta name="referrer" content="no-referrer">
     <meta name="theme-color" content="#6366f1">
@@ -58,14 +64,9 @@
     </div>
 
     <main id="app">
-        <!-- Loader -->
-        <div id="loader" class="loader-container">
-            <div class="loader"></div>
-        </div>
-
         <!-- Home View -->
         <div id="homeView" class="view active">
-            <section id="hero" class="hero-carousel">
+            <section id="hero" class="hero-carousel is-loading">
                 <div class="hero-track" id="heroTrack"></div>
                 <div class="hero-nav">
                     <button class="hero-prev" id="heroPrev"><i class="fas fa-chevron-left"></i></button>
@@ -148,7 +149,7 @@
 
     </main>
 
-    <script src="script.js?v=18"></script>
+    <script src="script.js?v=19"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

@@ -6,7 +6,6 @@ const searchGrid = document.getElementById('searchGrid');
 const libraryGrid = document.getElementById('libraryGrid');
 const favoritesGrid = document.getElementById('favoritesGrid');
 const scheduleContainer = document.getElementById('scheduleContainer');
-const loader = document.getElementById('loader');
 let libraryPage = 1;
 let libraryData = [];
 let currentSort = 'latest';
@@ -21,8 +20,44 @@ const views = {
     search: document.getElementById('searchView')
 };
 
-function showLoader(show) {
-    if (loader) loader.style.display = show ? 'flex' : 'none';
+function esc(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/* One shape for every "nothing here" case: a tile with an icon, a short
+   reason, and -- only when retrying can help -- an action. Keeping it in one
+   helper stops each grid from inventing its own centred paragraph. */
+function renderEmptyState(container, { icon = 'fa-inbox', title = 'Nothing here yet', message = '', actions = '' } = {}) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-icon"><i class="fas ${icon}"></i></div>
+            <h3>${esc(title)}</h3>
+            ${message ? `<p>${esc(message)}</p>` : ''}
+            ${actions ? `<div class="empty-actions">${actions}</div>` : ''}
+        </div>
+    `;
+}
+
+function retryButton(fnName) {
+    return `<button type="button" class="glass-btn" onclick="${fnName}()"><i class="fas fa-redo"></i> Coba lagi</button>`;
+}
+
+/* Posters fade in on decode, not on insertion. Doing it from JS instead of an
+   inline onload also covers the image that was already in the cache before
+   the node existed -- its load event has come and gone. */
+function hydrateThumb(img) {
+    if (!img) return;
+    const done = () => img.classList.add('is-loaded');
+    if (img.complete) done();
+    else {
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+    }
 }
 
 function renderSkeleton(container, count = 12) {
@@ -38,6 +73,59 @@ function renderSkeleton(container, count = 12) {
     `).join('');
 }
 
+/* The banner's poster is a background-image, so the browser gives us no load
+   event for it. A throwaway Image() preloads the same URL and flips .is-ready
+   on the div, which is what the CSS fade listens for. */
+function revealHeroPoster(slide) {
+    const bg = slide && slide.querySelector('.hero-bg');
+    if (!bg || bg.classList.contains('is-ready')) return;
+    const raw = (bg.style.backgroundImage || '').trim();
+    const url = raw.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
+    if (!url) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = img.onerror = () => bg.classList.add('is-ready');
+    img.src = url;
+}
+
+function renderHeroSkeleton() {
+    const track = document.getElementById('heroTrack');
+    if (!track) return;
+    document.getElementById('hero')?.classList.add('is-loading');
+    track.innerHTML = `
+        <div class="hero-slide hero-skeleton" aria-hidden="true">
+            <div class="hero-skel-block">
+                <div class="skel skel-badge"></div>
+                <div class="skel skel-title"></div>
+                <div class="skel skel-synopsis"></div>
+                <div class="skel skel-synopsis short"></div>
+                <div class="skel skel-btn"></div>
+            </div>
+        </div>
+    `;
+}
+
+/* When the feed cannot answer there is no poster to show, but the banner is
+   still the first thing on the page -- a pulsing skeleton would read as
+   "loading forever". A plain title plus a way forward is honest and quiet. */
+function renderHeroFallback() {
+    const track = document.getElementById('heroTrack');
+    if (!track) return;
+    const hero = document.getElementById('hero');
+    hero?.classList.remove('is-loading');
+    hero?.classList.add('is-empty');
+    track.innerHTML = `
+        <div class="hero-slide is-active">
+            <div class="hero-content">
+                <h2 class="hero-title">Shonen</h2>
+                <a href="#/library" class="hero-btn"><i class="fas fa-film"></i> Browse Library</a>
+            </div>
+        </div>
+    `;
+    const dots = document.getElementById('heroDots');
+    if (dots) dots.innerHTML = '';
+}
+
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.remove('active'));
     if (views[viewName]) {
@@ -47,6 +135,7 @@ function showView(viewName) {
 
 async function fetchOngoing() {
     renderSkeleton(ongoingGrid, 12);
+    renderHeroSkeleton();
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -57,37 +146,43 @@ async function fetchOngoing() {
 
         // Handle new error response format from backend
         if (data.error) {
-            ongoingGrid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
-                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
-                    <p style="color: #94a3b8;">Situs sumber (Samehadaku) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
-                    <p style="color: #64748b; font-size: 0.8rem; margin-top: 8px;">${data.error}</p>
-                </div>
-            `;
+            renderHeroFallback();
+            renderEmptyState(ongoingGrid, {
+                icon: 'fa-ghost',
+                title: 'Gagal mengambil data',
+                message: 'Situs sumber mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.',
+                actions: retryButton('fetchOngoing')
+            });
             return;
         }
 
         if (!data || (Array.isArray(data) && data.length === 0)) {
-            ongoingGrid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-ghost" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 20px;"></i>
-                    <h3 style="color: #fff; margin-bottom: 10px;">Gagal Mengambil Data</h3>
-                    <p style="color: #94a3b8;">Situs sumber (Samehadaku) mungkin sedang memblokir koneksi dari server. Coba lagi nanti atau gunakan VPN.</p>
-                </div>
-            `;
+            renderHeroFallback();
+            renderEmptyState(ongoingGrid, {
+                icon: 'fa-ghost',
+                title: 'Belum ada update',
+                message: 'Sumber tidak mengembalikan anime apa pun. Coba lagi beberapa saat lagi.',
+                actions: retryButton('fetchOngoing')
+            });
             return;
         }
 
         renderHeroCarousel(data.slice(0, 5));
         renderAnime(data.slice(0, 18), ongoingGrid);
     } catch (error) {
-        const msg = error.name === 'AbortError' ? 'Server timeout. Coba refresh.' : 'Gagal memuat anime terbaru. Pastikan backend jalan.';
+        const msg = error.name === 'AbortError'
+            ? 'Server tidak menjawab. Coba muat ulang halaman.'
+            : 'Gagal memuat anime terbaru. Pastikan backend berjalan.';
         console.error("Error fetching ongoing:", error);
-        if (ongoingGrid) ongoingGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">${msg}</p>`;
+        renderHeroFallback();
+        renderEmptyState(ongoingGrid, {
+            icon: 'fa-wifi',
+            title: 'Tidak bisa terhubung',
+            message: msg,
+            actions: retryButton('fetchOngoing')
+        });
     } finally {
         clearTimeout(timeout);
-        showLoader(false);
     }
 }
 
@@ -118,6 +213,18 @@ function renderHeroCarousel(items) {
     });
 
     track.innerHTML = slidesHtml;
+    const hero = document.getElementById('hero');
+    hero?.classList.remove('is-loading');
+    hero?.classList.remove('is-empty');
+
+    const slides = track.querySelectorAll('.hero-slide');
+    if (slides[0]) {
+        slides[0].classList.add('is-active');
+        revealHeroPoster(slides[0]);
+        // One ahead is enough: it is the next advance, and prefetching all
+        // five would put four full posters on the critical path.
+        revealHeroPoster(slides[1]);
+    }
     setHeroAmbient(track, 0);
 
     if (dotsContainer) {
@@ -153,6 +260,10 @@ function setupHeroNav(total) {
         if (index >= total) index = 0;
         heroIndex = index;
         track.style.left = `-${index * 100}%`;
+
+        const slides = track.querySelectorAll('.hero-slide');
+        slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+        if (slides[index]) revealHeroPoster(slides[index]);
         setHeroAmbient(track, index);
 
         document.querySelectorAll('.hero-dot').forEach(dot => {
@@ -185,7 +296,6 @@ function setupHeroNav(total) {
 async function searchAnime(query) {
     if (!query) return;
 
-    showLoader(true);
     showView('search');
     const queryDisplay = document.getElementById('searchQueryText');
     const grid = document.getElementById('searchGrid');
@@ -203,46 +313,55 @@ async function searchAnime(query) {
             throw new Error(data.error);
         }
         console.log("Search results:", data);
-        renderAnime(data, searchGrid);
+        renderAnime(data, searchGrid, false, {
+            icon: 'fa-search',
+            title: 'Anime tidak ditemukan',
+            message: `Tidak ada hasil untuk "${query}". Coba kata kunci lain atau judul bahasa Jepangnya.`
+        });
     } catch (error) {
         console.error("Error searching anime:", error);
-        if (grid) grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Error: ' + error.message + '. Pastikan backend (app.py) sudah jalan.</p>';
+        renderEmptyState(grid, {
+            icon: 'fa-triangle-exclamation',
+            title: 'Pencarian gagal',
+            message: `${error.message}. Pastikan backend berjalan, lalu coba lagi.`,
+            actions: `<button type="button" class="glass-btn" data-query="${esc(query)}" onclick="searchAnime(this.dataset.query)"><i class="fas fa-redo"></i> Coba lagi</button>`
+        });
     }
-    showLoader(false);
 }
 
 let currentAnimeId = null;
 let currentEpisodes = [];
 
-function renderAnime(list, container, append = false) {
+function renderAnime(list, container, append = false, empty = {}) {
     if (!container) return;
     if (!append) container.innerHTML = '';
-    
-    if (list.length === 0 && !append) {
-        container.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-                <div style="font-size: 4rem; margin-bottom: 16px; animation: searchBounce 2s ease-in-out infinite;">
-                    <i class="fas fa-search" style="color: var(--primary);"></i>
-                </div>
-                <h3 style="color: #fff; margin-bottom: 6px; font-size: 1.2rem;">Anime Not Found</h3>
-                <p style="color: #94a3b8; font-size: 0.9rem;">Sorry, coba searching manual pake judul bahasa Jepangnya.</p>
-            </div>
-        `;
+
+    if (!list || list.length === 0) {
+        if (!append) {
+            renderEmptyState(container, {
+                icon: empty.icon || 'fa-search',
+                title: empty.title || 'Anime tidak ditemukan',
+                message: empty.message || 'Coba kata kunci lain, atau pakai judul bahasa Jepangnya.',
+                actions: empty.actions || ''
+            });
+        }
         return;
     }
 
     list.forEach((anime, index) => {
         const card = document.createElement('div');
         card.className = 'anime-card';
-        // Staggered delay yang lebih terasa
-        card.style.animationDelay = `${index * 0.1}s`;
+        // Cap the cascade: after the twelfth card the eye has already read the
+        // row, and a longer queue just makes the last poster look late.
+        card.style.animationDelay = `${Math.min(index, 12) * 45}ms`;
         card.innerHTML = `
-            <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+            <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
             <div class="card-info">
                 <span class="ep-tag">${anime.episode || anime.status || 'NEW'}</span>
                 <h3>${anime.title}</h3>
             </div>
         `;
+        hydrateThumb(card.querySelector('.card-thumb'));
         card.onclick = () => {
             console.log("Navigating to anime:", anime.id);
             const epParam = anime.episode_id ? `&ep=${encodeURIComponent(anime.episode_id)}` : '';
@@ -297,14 +416,11 @@ async function loadMalSection(section) {
 }
 
 function renderMalFallback(containerId, icon, message) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = `
-        <div style="min-width: 100%; text-align: center; padding: 30px 10px;">
-            <i class="fas ${icon}" style="font-size: 1.8rem; color: var(--text-muted);"></i>
-            <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 10px;">${message}</p>
-        </div>
-    `;
+    renderEmptyState(document.getElementById(containerId), {
+        icon,
+        title: 'Data belum tersedia',
+        message
+    });
 }
 
 function setSeasonalTitle(items) {
@@ -351,7 +467,7 @@ function renderMalAnime(list, containerId, showRank = true) {
         const score = anime.score != null ? anime.score : 'N/A';
         const card = document.createElement('div');
         card.className = showRank ? 'anime-card anime-card-rank' : 'anime-card';
-        card.style.animationDelay = `${index * 0.05}s`;
+        card.style.animationDelay = `${Math.min(index, 12) * 40}ms`;
 
         const rankHtml = showRank ? `
             <span class="rank-number">${String(anime.rank || (index + 1)).padStart(2, '0')}</span>
@@ -364,7 +480,7 @@ function renderMalAnime(list, containerId, showRank = true) {
             </div>
         `;
 
-        const imgHtml = `<img src="${thumb}" alt="${title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">`;
+        const imgHtml = `<img src="${thumb}" alt="${title}" class="card-thumb" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">`;
 
         const innerHtml = showRank ? `
             ${rankHtml}
@@ -378,6 +494,7 @@ function renderMalAnime(list, containerId, showRank = true) {
         `;
 
         card.innerHTML = innerHtml;
+        hydrateThumb(card.querySelector('.card-thumb'));
         card.onclick = async () => {
             try {
                 const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(title)}`);
@@ -413,10 +530,20 @@ async function scheduleSearch(title, btn) {
 }
 
 function renderSchedule(data, container) {
+    if (!container) return;
+    container.classList.add('schedule-grid');
     container.innerHTML = '';
-    container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
-    container.style.gap = '20px';
+
+    if (!data || data.length === 0) {
+        renderEmptyState(container, {
+            icon: 'fa-calendar-xmark',
+            title: 'Jadwal belum tersedia',
+            message: 'Sumber jadwal tidak mengembalikan data. Coba muat ulang beberapa saat lagi.',
+            actions: retryButton('fetchSchedule')
+        });
+        return;
+    }
+
     const currentDay = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
 
     data.forEach(item => {
@@ -542,7 +669,7 @@ window.addEventListener('hashchange', handleRoute);
 
 async function fetchLibrary(page = 1, append = false) {
     const loadMoreBtn = document.getElementById('loadMoreLibrary');
-    if (!append) showLoader(true);
+    if (!append) renderSkeleton(libraryGrid, 12);
     if (loadMoreBtn) { loadMoreBtn.disabled = true; loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...'; }
 
     try {
@@ -561,12 +688,22 @@ async function fetchLibrary(page = 1, append = false) {
             applySort();
         } else {
             if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+            if (!append) {
+                libraryData = [];
+                applySort();
+            }
         }
     } catch (e) { 
         console.error(e); 
-        if (libraryGrid && !append) libraryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat library. ' + e.message + '</p>';
+        if (!append) {
+            renderEmptyState(libraryGrid, {
+                icon: 'fa-triangle-exclamation',
+                title: 'Gagal memuat library',
+                message: `${e.message}. Periksa koneksi lalu coba lagi.`,
+                actions: retryButton('fetchLibrary')
+            });
+        }
     } finally {
-        if (!append) showLoader(false);
         if (loadMoreBtn) { loadMoreBtn.disabled = false; loadMoreBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Load More Anime'; }
     }
 }
@@ -578,7 +715,12 @@ function applySort() {
     } else if (currentSort === 'za') {
         sorted.sort((a, b) => b.title.localeCompare(a.title));
     }
-    renderAnime(sorted, libraryGrid);
+    renderAnime(sorted, libraryGrid, false, {
+        icon: 'fa-film',
+        title: 'Library masih kosong',
+        message: 'Arsip tidak mengembalikan anime apa pun. Coba muat ulang halaman.',
+        actions: retryButton('fetchLibrary')
+    });
 }
 
 document.querySelectorAll('.sort-btn').forEach(btn => {
@@ -624,21 +766,29 @@ async function loadSchedule() {
 }
 
 async function fetchSchedule() {
-    showLoader(true);
     try {
         const schedule = await loadSchedule();
         if (!schedule.length) throw new Error('Jadwal sedang tidak tersedia');
         renderSchedule(schedule, scheduleContainer);
     } catch (e) {
         console.error(e);
-        if (scheduleContainer) scheduleContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #f43f5e;">Gagal memuat jadwal. ' + e.message + '</p>';
+        renderEmptyState(scheduleContainer, {
+            icon: 'fa-calendar-xmark',
+            title: 'Gagal memuat jadwal',
+            message: `${e.message}. Coba lagi beberapa saat lagi.`,
+            actions: retryButton('fetchSchedule')
+        });
     }
-    showLoader(false);
 }
 
 function renderFavorites() {
     const favs = JSON.parse(localStorage.getItem('shonen_favs') || '[]');
-    renderAnime(favs, favoritesGrid);
+    renderAnime(favs, favoritesGrid, false, {
+        icon: 'fa-heart',
+        title: 'Belum ada favorit',
+        message: 'Tekan ikon hati di halaman tonton untuk menyimpan anime ke sini.',
+        actions: '<a class="glass-btn" href="index.html"><i class="fas fa-compass"></i> Jelajahi anime</a>'
+    });
 }
 
 // Initial load

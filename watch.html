@@ -5,11 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Watch Anime | Shonen</title>
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://i0.wp.com">
+    <link rel="preconnect" href="https://cdn.myanimelist.net">
+    <link rel="dns-prefetch" href="https://api.jikan.moe">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6366f1">
     <link rel="apple-touch-icon" href="icon.png">
@@ -32,10 +36,6 @@
     </nav>
 
     <main id="app">
-        <div id="loader" class="loader-container">
-            <div class="loader"></div>
-        </div>
-
         <div id="watchView" class="view active">
             <div class="watch-topbar">
                 <button onclick="window.history.back()" class="back-btn" aria-label="Go back" title="Back">
@@ -103,7 +103,7 @@
         </div>
     </main>
 
-    <script src="watch.js?v=18"></script>
+    <script src="watch.js?v=19"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

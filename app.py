@@ -182,6 +182,20 @@ PUBLIC_FILES = frozenset({
 })
 
 
+@app.after_request
+def cache_headers(resp):
+    # The pages link their assets with ?v=<build>. That query string is the
+    # version, so the URL itself changes whenever the file does and the answer
+    # can be kept for a year. Anything without ?v= (the HTML itself, the
+    # manifest, an icon) stays revalidated so a deploy is picked up at once.
+    if resp.status_code == 200:
+        if request.args.get("v") and not request.path.startswith("/api/"):
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif resp.mimetype in ("text/html", "text/css", "application/javascript", "text/javascript"):
+            resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.route("/<path:path>")
 def static_proxy(path):
     if path not in PUBLIC_FILES:

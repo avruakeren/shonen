@@ -1,5 +1,4 @@
 const API_BASE = "/api";
-const loader = document.getElementById('loader');
 const playerSkeleton = document.getElementById('playerSkeleton');
 const mainVideoContainer = document.getElementById('mainVideoContainer');
 const serverSelector = document.getElementById('serverSelector');
@@ -19,8 +18,30 @@ let currentAnimeId = null;
 let currentEpisodes = [];
 let currentEpisodeId = null;
 
-function showLoader(show) {
-    if (loader) loader.style.display = show ? 'flex' : 'none';
+/* Same fade-in contract as the home grid: the poster becomes visible once the
+   bitmap decoded, so the panel never flashes an empty rectangle. */
+function hydrateThumb(img) {
+    if (!img) return;
+    const done = () => img.classList.add('is-loaded');
+    if (img.complete) done();
+    else {
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+    }
+}
+
+/* Kept local rather than shared: watch.js is a separate bundle and the two
+   pages never load each other's script. */
+function renderEmptyState(container, { icon = 'fa-inbox', title = 'Nothing here yet', message = '', actions = '' } = {}) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-icon"><i class="fas ${icon}"></i></div>
+            <h3>${title}</h3>
+            ${message ? `<p>${message}</p>` : ''}
+            ${actions ? `<div class="empty-actions">${actions}</div>` : ''}
+        </div>
+    `;
 }
 
 function showPlayerSkeleton() {
@@ -67,7 +88,6 @@ async function initWatch() {
     }
 
     currentAnimeId = id;
-    showLoader(true);
     showPlayerSkeleton();
 
     try {
@@ -142,8 +162,6 @@ async function initWatch() {
                 </div>
             `;
         }
-    } finally {
-        showLoader(false);
     }
 }
 
@@ -170,12 +188,13 @@ function renderAnimeInfo(anime) {
     const posterHtml = `
         <div class="poster-frame">
             <div class="poster-inner">
-                <img src="${anime.thumb}" alt="${anime.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/280x400?text=No+Image'">
+                <img src="${anime.thumb}" alt="${anime.title}" loading="lazy" decoding="async" onerror="this.src='https://via.placeholder.com/280x400?text=No+Image'">
                 ${epCount ? `<span class="poster-ep-count">${epCount} EP</span>` : ''}
             </div>
         </div>
     `;
     posterContainer.innerHTML = posterHtml;
+    hydrateThumb(posterContainer.querySelector('img'));
 
     const badges = [];
     if (info.score) badges.push(`<span class="info-badge score"><i class="fas fa-star"></i> ${info.score}</span>`);
@@ -460,18 +479,23 @@ async function renderRecommended(animeId) {
         }
         const filtered = data.filter(a => a.id !== animeId).slice(0, 10);
         if (filtered.length === 0) {
-            recommendedGrid.closest('.recommended-section').style.display = 'none';
+            renderEmptyState(recommendedGrid, {
+                icon: 'fa-thumbs-up',
+                title: 'Belum ada rekomendasi',
+                message: 'Tidak ada judul lain yang bisa disarankan saat ini.'
+            });
             return;
         }
         recommendedGrid.innerHTML = filtered.map((anime, i) => `
-            <div class="anime-card" style="animation-delay: ${i * 0.05}s" onclick="window.location.href='watch.html?id=${anime.id}'">
-                <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+            <div class="anime-card" style="animation-delay: ${Math.min(i, 12) * 45}ms" onclick="window.location.href='watch.html?id=${anime.id}'">
+                <img src="${anime.thumb}" alt="${anime.title}" class="card-thumb" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
                 <div class="card-info">
                     <span class="ep-tag">${anime.episode || anime.status || 'NEW'}</span>
                     <h3>${anime.title}</h3>
                 </div>
             </div>
         `).join('');
+        recommendedGrid.querySelectorAll('.card-thumb').forEach(hydrateThumb);
     } catch (e) {
         console.error("Recommended fetch error:", e);
         recommendedGrid.closest('.recommended-section').style.display = 'none';
