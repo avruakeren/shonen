@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shonen | Streaming Anime</title>
-    <link rel="stylesheet" href="style.css?v=19">
+    <link rel="stylesheet" href="style.css?v=20">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="shortcut icon" href="icon.png">
@@ -27,7 +27,7 @@
     <link rel="dns-prefetch" href="https://api.jikan.moe">
     <link rel="manifest" href="manifest.json">
     <meta name="referrer" content="no-referrer">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#0B0B0C">
 </head>
 
 
@@ -38,13 +38,13 @@
             <i class="fas fa-bolt"></i>
         </a>
         <div class="nav-items">
-            <a href="#/" class="nav-item active" title="Home" style="animation-delay:0.05s"><i class="fas fa-home"></i></a>
-            <a href="#/library" class="nav-item" title="Library" style="animation-delay:0.1s"><i class="fas fa-film"></i></a>
-            <a href="#/schedule" class="nav-item" title="Schedule" style="animation-delay:0.15s"><i class="fas fa-calendar-alt"></i></a>
-            <a href="#/favorites" class="nav-item" title="Favorites" style="animation-delay:0.2s"><i class="fas fa-heart"></i></a>
+            <a href="#/" class="nav-item active" title="Home"><i class="fas fa-home"></i></a>
+            <a href="#/library" class="nav-item" title="Library"><i class="fas fa-film"></i></a>
+            <a href="#/schedule" class="nav-item" title="Schedule"><i class="fas fa-calendar-alt"></i></a>
+            <a href="#/favorites" class="nav-item" title="Favorites"><i class="fas fa-heart"></i></a>
         </div>
         <div class="nav-footer">
-            <button id="searchToggle" class="nav-item" title="Search" style="animation-delay:0.25s"><i class="fas fa-search"></i></button>
+            <button id="searchToggle" class="nav-item" title="Search"><i class="fas fa-search"></i></button>
         </div>
     </nav>
 
@@ -77,7 +77,7 @@
 
             <section id="ongoingSection">
                 <div class="section-header">
-                    <h2><i class="fas fa-fire" style="color: #f97316;"></i> Latest Updates</h2>
+                    <h2><i class="fas fa-fire"></i> Latest Updates</h2>
                 </div>
                 <div class="anime-grid" id="ongoingGrid">
                     <!-- Cards injected here -->
@@ -92,13 +92,13 @@
             <section id="mal-sections" style="margin-top: 4rem;">
                 <!-- Seasonal -->
                 <div class="section-header">
-                    <h2 id="seasonalTitle"><i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime</h2>
+                    <h2 id="seasonalTitle"><i class="fas fa-leaf"></i> Seasonal Anime</h2>
                 </div>
                 <div class="horizontal-scroll" id="seasonalGrid"></div>
 
                 <!-- Top Anime -->
                 <div class="section-header" style="margin-top: 3rem;">
-                    <h2><i class="fas fa-trophy" style="color: #fbbf24;"></i> Top Rated</h2>
+                    <h2><i class="fas fa-trophy"></i> Top Rated</h2>
                 </div>
                 <div class="horizontal-scroll" id="topGrid"></div>
             </section>
@@ -117,7 +117,7 @@
             <div class="anime-grid" id="libraryGrid"></div>
             <div style="text-align: center; margin-top: 40px; margin-bottom: 40px;">
                 <button id="loadMoreLibrary" type="button" class="glass"
-                    style="padding: 12px 40px; border-radius: 99px; color: white; cursor: pointer; border: 1px solid var(--glass-border); font-weight: 600; font-size: 1rem;">
+                    style="padding: 11px 32px; border-radius: 8px; color: white; cursor: pointer; border: 1px solid var(--glass-border); font-weight: 600; font-size: 0.95rem;">
                     <i class="fas fa-plus-circle"></i> Load More Anime
                 </button>
             </div>
@@ -126,7 +126,7 @@
         <!-- Favorites View -->
         <div id="favoritesView" class="view">
             <div class="section-header">
-                <h2><i class="fas fa-heart" style="color: #f43f5e;"></i> My Favorites</h2>
+                <h2><i class="fas fa-heart"></i> My Favorites</h2>
             </div>
             <div class="anime-grid" id="favoritesGrid"></div>
         </div>
@@ -134,7 +134,7 @@
         <!-- Schedule View -->
         <div id="scheduleView" class="view">
             <div class="section-header">
-                <h2><i class="fas fa-calendar-day" style="color: var(--primary);"></i> Weekly Schedule</h2>
+                <h2><i class="fas fa-calendar-day"></i> Weekly Schedule</h2>
             </div>
             <div class="schedule-container" id="scheduleContainer"></div>
         </div>
@@ -149,7 +149,7 @@
 
     </main>
 
-    <script src="script.js?v=19"></script>
+    <script src="script.js?v=20"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

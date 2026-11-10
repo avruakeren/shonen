@@ -7,8 +7,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "minimal-ui"],
   "orientation": "portrait-primary",
-  "background_color": "#0B0F19",
-  "theme_color": "#6366f1",
+  "background_color": "#0B0B0C",
+  "theme_color": "#0B0B0C",
   "description": "Watch Anime Ads Free with Premium Experience",
   "icons": [
     {

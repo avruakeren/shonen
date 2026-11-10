@@ -1,16 +1,19 @@
 :root {
-    --bg-base: #0B0F19;
-    --bg-surface: #101726;
-    --bg-card: rgba(30, 41, 59, 0.4);
-    --border: rgba(255, 255, 255, 0.05);
-    --border-hover: rgba(99, 102, 241, 0.3);
-    --primary: #6366F1;
-    --primary-glow: rgba(99, 102, 241, 0.2);
-    --text-main: #F8FAFC;
-    --text-muted: #94A3B8;
-    --accent: #10B981;
-    --glass: rgba(15, 23, 42, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
+    /* A near-black page, paper-white type, and one warm signal colour. The
+       neutral base keeps posters in charge; the accent is reserved for the
+       things that are actually live (today, active rail, primary action). */
+    --bg-base: #0B0B0C;
+    --bg-surface: #121214;
+    --bg-card: #131316;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-hover: rgba(255, 255, 255, 0.22);
+    --primary: #F2EFE9;
+    --primary-glow: rgba(255, 255, 255, 0.06);
+    --text-main: #F2F0EA;
+    --text-muted: #9A9994;
+    --accent: #E8452B;
+    --glass: rgba(19, 19, 21, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.11);
 
     /* --- Glass material ---
        One flat translucent fill per role plus a backdrop blur -- no
@@ -21,17 +24,16 @@
        already-frosted panel, or on a smooth background, has no detail
        behind it worth a second backdrop-filter; it keeps the translucency
        and skips the compositing pass. */
-    --glass-btn-bg: rgba(255, 255, 255, 0.07);
-    --glass-active-bg: rgba(99, 102, 241, 0.35);
+    --glass-btn-bg: rgba(255, 255, 255, 0.05);
+    --glass-active-bg: rgba(255, 255, 255, 0.1);
 
-    /* The hero CTA stays the one control wearing indigo; the dismissive
-       ones -- favourited, close -- get rose so the tint agrees with the
-       icon rather than borrowing indigo. */
-    --glass-cta-bg: rgba(99, 102, 241, 0.5);
-    --glass-rose-bg: rgba(244, 63, 94, 0.3);
+    /* The hero CTA is the only control allowed to carry the signal colour;
+       everything else stays neutral so that one button owns the hierarchy. */
+    --glass-cta-bg: rgba(232, 69, 43, 0.4);
+    --glass-rose-bg: rgba(244, 63, 94, 0.16);
 
     --glass-blur: blur(20px);
-    --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
     /* --- Typography ---
        Two faces, two jobs. Outfit carries every sentence; Bricolage carries
@@ -136,18 +138,17 @@ body::before {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    filter: blur(90px) saturate(1.7) brightness(1.25);
-    opacity: 0.32;
+    filter: blur(90px) saturate(1.2) brightness(1.15);
+    opacity: 0.2;
 }
 
-/* Nothing in the stylesheet gave a control a keyboard indicator. The ring
-   uses the same indigo the active states do, so focus reads as "selected"
-   rather than as the browser's default. */
+/* The ring is the signal colour, so keyboard focus reads as deliberately
+   highlighted rather than as the browser's default. */
 button:focus-visible,
 a:focus-visible,
 select:focus-visible,
 input:focus-visible {
-    outline: 2px solid rgba(165, 180, 252, 0.9);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
@@ -187,16 +188,9 @@ main#app {
 }
 
 .nav-logo {
-    font-size: 1.6rem;
-    color: var(--primary);
+    font-size: 1.55rem;
+    color: var(--text-main);
     margin-bottom: 2rem;
-    filter: drop-shadow(0 0 10px var(--primary-glow));
-    animation: logoPulse 3s ease-in-out infinite;
-}
-
-@keyframes logoPulse {
-    0%, 100% { filter: drop-shadow(0 0 10px var(--primary-glow)); }
-    50% { filter: drop-shadow(0 0 20px var(--primary-glow)) brightness(1.2); }
 }
 
 .nav-items {
@@ -212,26 +206,17 @@ main#app {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 14px;
+    border-radius: 12px;
     color: var(--text-muted);
     font-size: 1.3rem;
-    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     text-decoration: none;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     position: relative;
-    animation: navEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-}
-
-@keyframes navEntrance {
-    from {
-        opacity: 0;
-        transform: translateX(-20px) scale(0.8);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0) scale(1);
-    }
 }
 
 .nav-item::after {
@@ -239,10 +224,10 @@ main#app {
     position: absolute;
     left: -1px;
     top: 50%;
-    width: 3px;
+    width: 2px;
     height: 0;
-    background: var(--primary);
-    border-radius: 0 4px 4px 0;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
     transition: height 0.3s, top 0.3s;
 }
 
@@ -255,13 +240,12 @@ main#app {
 .nav-item:hover,
 .nav-item.active {
     background: var(--glass-active-bg);
-    color: white;
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: var(--glass-lift), 0 8px 20px rgba(99, 102, 241, 0.35);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #fff;
 }
 
 .nav-item:active {
-    transform: translateY(0) scale(0.95);
+    background: rgba(255, 255, 255, 0.14);
 }
 
 .nav-footer {
@@ -374,50 +358,36 @@ main#app {
     }
 }
 
-/* A slow settle on the poster. Short enough to read as depth, long enough
-   that it is never mistaken for a jitter. */
-@media (prefers-reduced-motion: no-preference) {
-    .hero-slide.is-active .hero-bg.is-ready {
-        animation: heroDrift 9s linear both;
-    }
-
-    @keyframes heroDrift {
-        from {
-            transform: scale(1.06);
-        }
-
-        to {
-            transform: scale(1);
-        }
-    }
-}
+/* A slow settle on the poster. Removed: the interface should not zoom while
+   the viewer is reading. The slide still cross-fades through .hero-bg. */
 
 .hero-score {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(251, 191, 36, 0.15);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    padding: 4px 12px;
-    border-radius: 99px;
-    font-size: 0.85rem;
+    background: var(--glass-btn-bg);
+    border: 1px solid var(--glass-border);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
     font-weight: 700;
-    color: #fbbf24;
+    color: var(--text-main);
     margin-bottom: 12px;
     backdrop-filter: blur(8px);
 }
 
 .hero-score i {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    color: #fbbf24;
 }
 
 .hero-title {
     font-size: clamp(1.45rem, 3.6vw, 2.35rem);
-    font-weight: 700;
-    line-height: 1.08;
+    font-weight: 800;
+    line-height: 1.02;
     color: #fff;
     margin-bottom: 10px;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.04em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -428,7 +398,7 @@ main#app {
 
 .hero-synopsis {
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--text-muted);
     line-height: 1.5;
     margin-bottom: 18px;
     display: -webkit-box;
@@ -443,29 +413,28 @@ main#app {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 32px;
-    /* The one control that is allowed to glow: same glass recipe as
-       everything else, but filled indigo so the hierarchy survives the
-       material change. It sits over .hero-bg, so this is also the only
-       button whose backdrop-filter has real artwork to bend. */
+    padding: 12px 26px;
+    /* The one control that is allowed to carry the signal colour: same glass
+       recipe as everything else, but tinted vermilion so the hierarchy
+       survives the material change. */
     background: var(--glass-cta-bg);
     color: #fff;
     border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    font-size: 1rem;
+    border-radius: 10px;
+    font-size: 0.95rem;
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: var(--glass-lift), 0 8px 25px rgba(99, 102, 241, 0.35);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .hero-btn:hover {
-    transform: translateY(-3px) scale(1.03);
-    box-shadow: var(--glass-lift), 0 15px 40px rgba(99, 102, 241, 0.55);
-    filter: brightness(1.12);
+    background: rgba(232, 69, 43, 0.52);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .hero-btn i {
@@ -487,7 +456,7 @@ main#app {
 .hero-next {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 10px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: #fff;
@@ -496,7 +465,9 @@ main#app {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s;
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     box-shadow: var(--glass-lift);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -505,7 +476,7 @@ main#app {
 .hero-prev:hover,
 .hero-next:hover {
     background: var(--glass-active-bg);
-    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.18);
 }
 
 .hero-dots {
@@ -516,18 +487,18 @@ main#app {
 .hero-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: 2px;
     background: rgba(255,255,255,0.25);
     border: none;
     cursor: pointer;
-    transition: all 0.4s ease;
+    transition: width 0.3s var(--ease-out), background 0.3s var(--ease-out);
     padding: 0;
 }
 
 .hero-dot.active {
     width: 24px;
-    border-radius: 99px;
-    background: var(--primary);
+    border-radius: 2px;
+    background: var(--accent);
 }
 
 /* --- HERO SKELETON LOADER --- */
@@ -593,29 +564,31 @@ main#app {
 }
 
 .sort-btn {
-    padding: 7px 20px;
-    border-radius: 99px;
+    padding: 7px 16px;
+    border-radius: 6px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     font-family: inherit;
-    box-shadow: var(--glass-lift);
 }
 
 .sort-btn:hover {
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
     color: #fff;
-    transform: translateY(-1px);
 }
 
 .sort-btn.active {
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.24);
     color: #fff;
-    box-shadow: var(--glass-lift), 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .anime-card-rank {
@@ -680,42 +653,30 @@ main#app {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 28px;
-    border-radius: 99px;
+    padding: 11px 24px;
+    border-radius: 8px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     text-decoration: none;
     font-family: inherit;
-    box-shadow: var(--glass-lift);
 }
 
 .see-all-btn:hover {
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
     color: #fff;
-    transform: translateY(-3px);
-    box-shadow: var(--glass-lift), 0 10px 25px rgba(99, 102, 241, 0.35);
 }
 
 .see-all-btn i {
     font-size: 0.8rem;
-}
-
-@keyframes shine {
-    to {
-        background-position: 300% center;
-    }
-}
-
-@keyframes searchBounce {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    25% { transform: translateY(-15px) rotate(-10deg); }
-    50% { transform: translateY(0) rotate(0deg); }
-    75% { transform: translateY(-15px) rotate(10deg); }
 }
 
 /* --- ANIME GRIDS & CARDS --- */
@@ -723,7 +684,29 @@ main#app {
     display: flex;
     align-items: center;
     gap: 15px;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+    font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+}
+
+.section-header h2 i {
+    margin-right: 10px;
+    font-size: 0.78em;
+    color: var(--text-muted);
+}
+
+#libraryView h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
 }
 
 .anime-grid {
@@ -735,8 +718,8 @@ main#app {
 .anime-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 10px;
     cursor: pointer;
     transition:
         transform var(--dur-base) var(--ease-out),
@@ -753,7 +736,7 @@ main#app {
 @keyframes cardReveal {
     from {
         opacity: 0;
-        transform: translateY(18px) scale(0.985);
+        transform: translateY(10px);
     }
 
     to {
@@ -763,32 +746,28 @@ main#app {
 }
 
 .anime-card:hover {
-    transform: translateY(-6px) scale(1.015);
-    border-color: var(--primary);
-    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--primary-glow);
+    transform: translateY(-3px);
+    border-color: var(--border-hover);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
 }
 
 .anime-card:active {
-    transform: translateY(-2px) scale(0.998);
+    transform: translateY(-1px);
 }
 
 .card-thumb {
     width: 100%;
     aspect-ratio: 2/3;
     object-fit: cover;
-    border-radius: 14px;
+    border-radius: 8px;
     /* Placed first, faded in on decode (script.js adds .is-loaded). Without
        this a grid of twelve posters pops in one row at a time. */
     opacity: 0;
-    transition: transform 600ms var(--ease-out), opacity 380ms var(--ease-out);
+    transition: opacity 380ms var(--ease-out);
 }
 
 .card-thumb.is-loaded {
     opacity: 1;
-}
-
-.anime-card:hover .card-thumb {
-    transform: scale(1.035);
 }
 
 .card-info {
@@ -807,15 +786,20 @@ main#app {
 }
 
 .ep-tag {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 700;
-    color: var(--primary);
-    background: rgba(99, 102, 241, 0.1);
-    padding: 3px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    letter-spacing: 0.04em;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--glass-border);
     display: inline-block;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
+}
+
+.ep-tag i {
+    color: var(--accent);
 }
 
 /* --- HORIZONTAL SCROLL --- */
@@ -843,7 +827,7 @@ main#app {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(7, 10, 18, 0.9);
+    background: rgba(7, 8, 9, 0.92);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     z-index: 9999;
@@ -861,39 +845,41 @@ main#app {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 8px 15px 8px 25px;
+    border-radius: 12px;
+    padding: 8px 12px 8px 22px;
     display: flex;
     align-items: center;
     gap: 15px;
-    box-shadow: var(--glass-lift), 0 20px 50px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.1);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
 }
 
 .search-bar:focus-within {
     background: var(--glass-active-bg);
-    box-shadow: var(--glass-lift), 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.2);
-    transform: translateY(-2px);
+    border-color: var(--border-hover);
 }
 
 .search-bar button {
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     cursor: pointer;
-    width: 45px;
-    height: 45px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    transition: all 0.3s;
-    box-shadow: var(--glass-lift);
+    border-radius: 8px;
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out);
 }
 
 .search-bar button:hover {
-    color: white;
+    color: #fff;
     background: var(--glass-active-bg);
 }
 
@@ -919,39 +905,39 @@ main#app {
     position: sticky;
     top: 0;
     z-index: 1001;
-    background: rgba(10, 10, 10, 0.7);
+    background: rgba(11, 11, 12, 0.82);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
 }
 
 .mobile-header .logo {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 800;
     color: #fff;
     display: flex;
     align-items: center;
     gap: 10px;
+    letter-spacing: -0.02em;
 }
 
 #mobileSearchBtn {
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: #fff;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     cursor: pointer;
     width: 42px;
     height: 42px;
-    border-radius: 12px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s;
-    box-shadow: var(--glass-lift);
+    transition: background var(--dur-fast) var(--ease-out);
 }
 
 #mobileSearchBtn:hover {
     background: var(--glass-active-bg);
-    transform: scale(1.05);
 }
 
 .search-bar input {
@@ -978,7 +964,7 @@ main#app {
     width: 100%;
     aspect-ratio: 16 / 9;
     background: #000;
-    border-radius: 24px;
+    border-radius: 16px;
     overflow: hidden;
 }
 
@@ -1028,7 +1014,7 @@ main#app {
 
 /* --- CARD SKELETON LOADER --- */
 .card-skeleton {
-    border-radius: 18px;
+    border-radius: 12px;
     overflow: hidden;
     background: var(--glass);
     border: 1px solid var(--glass-border);
@@ -1098,11 +1084,11 @@ main#app {
     width: 72px;
     height: 72px;
     margin-bottom: 16px;
-    border-radius: 22px;
+    border-radius: 12px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-lift);
-    color: var(--primary);
+    color: var(--text-main);
     font-size: 1.7rem;
 }
 
@@ -1156,6 +1142,103 @@ main#app {
     gap: 20px;
 }
 
+/* The schedule used to be painted with inline styles -- a pile of glows,
+   rounded badges and a hover state that turned solid white. It is a plain
+   list now: one surface, one accent for today, and neutral hover. */
+.schedule-day {
+    padding: 18px;
+    border-radius: 16px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    min-width: 0;
+}
+
+.schedule-day.is-today {
+    border-color: rgba(232, 69, 43, 0.5);
+}
+
+.schedule-day-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.schedule-day-head h3 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.schedule-today {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.schedule-day-head i {
+    color: var(--text-muted);
+}
+
+.schedule-day.is-today .schedule-day-head i {
+    color: var(--accent);
+}
+
+.schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.schedule-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.86rem;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
+}
+
+.schedule-item:hover {
+    background: var(--glass-active-bg);
+    border-color: var(--border-hover);
+}
+
+.schedule-item i {
+    font-size: 0.8rem;
+    opacity: 0.55;
+}
+
+.schedule-item span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* --- Deferred rendering for below-the-fold sections ---
    The MAL rows are the heaviest thing on the home page and nobody sees them
    on the first screen. The intrinsic size keeps the scrollbar honest while
@@ -1181,8 +1264,8 @@ main#app {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    border-radius: 18px;
-    box-shadow: var(--glass-lift), 0 8px 24px rgba(0, 0, 0, 0.25);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
 .back-btn {
@@ -1191,29 +1274,30 @@ main#app {
     -webkit-backdrop-filter: var(--glass-blur);
     color: #fff;
     padding: 8px 12px;
-    border-radius: 14px;
+    border-radius: 8px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     font-weight: 600;
     font-size: 0.9rem;
     border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-lift), 0 6px 18px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--glass-lift);
     flex-shrink: 0;
 }
 
 .back-btn i {
-    color: var(--primary);
+    color: var(--text-muted);
     font-size: 0.85rem;
 }
 
 .back-btn:hover {
-    transform: translateX(-5px);
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
     color: #fff;
-    box-shadow: var(--glass-lift), 0 5px 15px rgba(99, 102, 241, 0.2);
 }
 
 .now-playing {
@@ -1229,13 +1313,7 @@ main#app {
 }
 
 .now-playing i {
-    color: var(--primary);
-    animation: pulseAudio 1.5s ease infinite;
-}
-
-@keyframes pulseAudio {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(0.95); }
+    color: var(--accent);
 }
 
 /* --- Topbar actions ---
@@ -1255,7 +1333,7 @@ main#app {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    border-radius: 8px;
     background: var(--glass-btn-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -1263,29 +1341,32 @@ main#app {
     color: #fff;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--glass-lift), 0 6px 18px rgba(0, 0, 0, 0.28);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
+    box-shadow: var(--glass-lift);
     flex-shrink: 0;
 }
 
 .icon-btn:hover {
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
     color: #fff;
 }
 
 /* --- Player Section --- */
 #playerSection {
     margin-bottom: 20px;
-    border-radius: 24px;
+    border-radius: 16px;
     overflow: hidden;
     background: #000;
-    box-shadow: 0 0 80px rgba(0, 0, 0, 0.8), 0 0 30px var(--primary-glow);
-    animation: playerEntrance 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    animation: playerEntrance 0.5s var(--ease-out);
 }
 
 @keyframes playerEntrance {
-    from { opacity: 0; transform: scale(0.97) translateY(20px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
 }
 
 .player-skeleton {
@@ -1299,7 +1380,7 @@ main#app {
 .player-skel-shimmer {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.05) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%);
     background-size: 200% 100%;
     animation: skelShimmer 2s ease-in-out infinite;
 }
@@ -1424,7 +1505,7 @@ main#app {
 }
 
 .server-header i {
-    color: var(--primary);
+    color: var(--text-muted);
 }
 
 .quality-group {
@@ -1435,17 +1516,19 @@ main#app {
 }
 
 .quality-btn {
-    padding: 5px 14px;
-    border-radius: 99px;
+    padding: 5px 12px;
+    border-radius: 6px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
     font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     font-family: inherit;
-    box-shadow: var(--glass-lift);
 }
 
 .quality-btn:hover {
@@ -1455,8 +1538,8 @@ main#app {
 
 .quality-btn.active {
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.24);
     color: #fff;
-    box-shadow: var(--glass-lift), 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .mirror-group {
@@ -1469,16 +1552,17 @@ main#app {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 10px;
+    padding: 6px 11px;
+    border-radius: 6px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: #fff;
     font-size: 0.82rem;
     cursor: pointer;
-    transition: all 0.3s;
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     font-family: inherit;
-    box-shadow: var(--glass-lift);
 }
 
 .server-btn i {
@@ -1488,13 +1572,12 @@ main#app {
 
 .server-btn:hover {
     background: var(--glass-active-bg);
-    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.18);
 }
 
 .server-btn.active {
     background: var(--glass-active-bg);
-    box-shadow: var(--glass-lift), 0 0 15px rgba(99, 102, 241, 0.25);
-    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.24);
 }
 
 .no-mirror {
@@ -1510,7 +1593,7 @@ main#app {
 .info-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(7, 10, 18, 0.9);
+    background: rgba(7, 8, 9, 0.92);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     z-index: 9999;
@@ -1532,14 +1615,14 @@ main#app {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    border-radius: 24px;
+    border-radius: 16px;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-    animation: modalRise 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+    animation: modalRise 0.3s var(--ease-out);
 }
 
 @keyframes modalRise {
-    from { opacity: 0; transform: translateY(16px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
 }
 
 .info-modal-close {
@@ -1551,15 +1634,16 @@ main#app {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    border-radius: 8px;
     /* Already sitting on the frosted modal, so it takes the edge and the
        translucency but not a second backdrop-filter. */
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: var(--glass-lift);
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out);
     z-index: 2;
 }
 
@@ -1599,16 +1683,16 @@ main#app {
 }
 
 .poster-frame {
-    padding: 6px;
+    padding: 5px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 12px;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
 }
 
 .poster-inner {
     position: relative;
-    border-radius: 14px;
+    border-radius: 8px;
     overflow: hidden;
 }
 
@@ -1661,13 +1745,14 @@ main#app {
 }
 
 .info-badge {
-    padding: 3px 12px;
-    border-radius: 99px;
-    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.68rem;
     font-weight: 700;
-    background: rgba(99, 102, 241, 0.12);
-    color: var(--primary);
-    border: 1px solid rgba(99, 102, 241, 0.15);
+    letter-spacing: 0.03em;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    border: 1px solid var(--glass-border);
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1679,20 +1764,21 @@ main#app {
 }
 
 .info-badge.score {
-    background: rgba(251, 191, 36, 0.12);
-    border-color: rgba(251, 191, 36, 0.2);
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.22);
     color: #fbbf24;
 }
 
 .info-badge.type {
-    background: rgba(16, 185, 129, 0.12);
-    border-color: rgba(16, 185, 129, 0.2);
-    color: #10b981;
+    background: rgba(232, 69, 43, 0.12);
+    border-color: rgba(232, 69, 43, 0.28);
+    color: var(--accent);
 }
 
 .info-badge.year {
-    background: rgba(99, 102, 241, 0.08);
-    border-color: rgba(99, 102, 241, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--glass-border);
+    color: var(--text-muted);
 }
 
 .fav-btn {
@@ -1701,27 +1787,30 @@ main#app {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid var(--glass-border);
     background: var(--glass-btn-bg);
     color: #fff;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out),
+        color var(--dur-fast) var(--ease-out);
     box-shadow: var(--glass-lift);
     flex-shrink: 0;
 }
 
 .fav-btn:hover {
-    transform: scale(1.1);
     background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* Favourited keeps its own rose material rather than borrowing the indigo
+/* Favourited keeps its own rose material rather than borrowing the neutral
    active state -- the tint and the icon have to agree. */
 .fav-btn.active {
     color: #f43f5e;
     background: var(--glass-rose-bg);
-    box-shadow: var(--glass-lift), 0 4px 14px rgba(244, 63, 94, 0.3);
+    border-color: rgba(244, 63, 94, 0.3);
 }
 
 .genre-pills {
@@ -1732,24 +1821,27 @@ main#app {
 }
 
 .genre-pill {
-    padding: 4px 14px;
-    border-radius: 99px;
-    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.72rem;
     font-weight: 600;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--border);
     color: var(--text-muted);
-    transition: all 0.3s;
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
 }
 
 .genre-pill:hover {
-    background: rgba(99, 102, 241, 0.1);
-    border-color: rgba(99, 102, 241, 0.2);
+    background: var(--glass-active-bg);
+    border-color: var(--border-hover);
     color: #fff;
 }
 
 .synopsis-text {
-    color: #cbd5e1;
+    color: #C9C7C1;
     line-height: 1.75;
     font-size: 0.95rem;
     margin-bottom: 20px;
@@ -1759,9 +1851,9 @@ main#app {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    padding: 16px;
+    padding: 14px;
     background: rgba(255, 255, 255, 0.02);
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid var(--border);
 }
 
@@ -1813,16 +1905,16 @@ main#app {
 }
 
 .episode-header h3 i {
-    color: var(--primary);
+    color: var(--text-muted);
 }
 
 .ep-count-badge {
-    font-size: 0.75rem;
-    font-weight: 600;
-    background: rgba(99, 102, 241, 0.15);
-    color: var(--primary);
-    padding: 2px 10px;
-    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(232, 69, 43, 0.12);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
     margin-left: 4px;
 }
 
@@ -1837,18 +1929,20 @@ main#app {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    border-radius: 14px;
+    border-radius: 8px;
     color: #fff;
     font-size: 0.95rem;
     font-weight: 500;
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-body);
     cursor: pointer;
     outline: none;
-    transition: all 0.3s;
+    transition:
+        border-color var(--dur-fast) var(--ease-out),
+        box-shadow var(--dur-fast) var(--ease-out);
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394A3B8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239A9994' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 34px;
@@ -1859,12 +1953,12 @@ main#app {
 }
 
 .episode-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232, 69, 43, 0.12);
 }
 
 .episode-select option {
-    background: #0f172a;
+    background: #131316;
     color: #fff;
     padding: 8px;
 }
@@ -1902,12 +1996,12 @@ main#app {
     font-weight: 700;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: color var(--dur-fast) var(--ease-out);
     user-select: none;
 }
 
 .download-header i:first-child {
-    color: var(--primary);
+    color: var(--text-muted);
 }
 
 .download-header i:last-child {
@@ -1943,7 +2037,7 @@ main#app {
 .download-res {
     font-size: 0.8rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--text-main);
     min-width: 52px;
     flex-shrink: 0;
 }
@@ -1958,20 +2052,21 @@ main#app {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 5px 12px;
-    border-radius: 8px;
+    padding: 5px 10px;
+    border-radius: 6px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
     font-size: 0.75rem;
     text-decoration: none;
-    transition: all 0.3s;
-    box-shadow: var(--glass-lift);
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out);
 }
 
 .download-link i {
     font-size: 0.7rem;
-    color: var(--primary);
+    color: var(--text-muted);
 }
 
 .download-link:hover {
@@ -2006,7 +2101,7 @@ main#app {
 }
 
 .recommended-section .section-header h3 i {
-    color: var(--primary);
+    color: var(--text-muted);
 }
 
 /* Scoped to the watch page: .horizontal-scroll is shared with the home
@@ -2054,8 +2149,8 @@ main#app {
 }
 
 .glass-btn {
-    padding: 12px 24px;
-    border-radius: 14px;
+    padding: 11px 22px;
+    border-radius: 8px;
     background: var(--glass-btn-bg);
     border: 1px solid var(--glass-border);
     color: #fff;
@@ -2065,14 +2160,15 @@ main#app {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s;
+    transition:
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
     font-family: inherit;
-    box-shadow: var(--glass-lift);
 }
 
 .glass-btn:hover {
     background: var(--glass-active-bg);
-    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.18);
 }
 
 @media (max-width: 1024px) {
@@ -2107,7 +2203,7 @@ main#app {
         width: calc(100% - 2rem);
         height: 70px;
         margin: 1rem;
-        border-radius: 20px;
+        border-radius: 16px;
         flex-direction: row;
         padding: 0 1rem;
         border: 1px solid var(--glass-border);
@@ -2187,11 +2283,11 @@ main#app {
 
     .anime-card {
         padding: 8px;
-        border-radius: 12px;
+        border-radius: 8px;
     }
 
     .card-thumb {
-        border-radius: 8px;
+        border-radius: 6px;
     }
 
     /* --- Watch Page Mobile --- */
@@ -2259,7 +2355,7 @@ main#app {
     .info-modal {
         max-width: none;
         max-height: 82vh;
-        border-radius: 24px 24px 0 0;
+        border-radius: 16px 16px 0 0;
         padding: 24px 16px 32px;
     }
 
@@ -2301,11 +2397,11 @@ main#app {
     .poster-frame {
         max-width: 140px;
         padding: 4px;
-        border-radius: 14px;
+        border-radius: 10px;
     }
 
     .poster-inner {
-        border-radius: 10px;
+        border-radius: 6px;
     }
 
     .anime-title {

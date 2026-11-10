@@ -429,7 +429,7 @@ function setSeasonalTitle(items) {
     const first = items.find(i => i.season);
     if (!first || !first.season) return;
     const seasonStr = first.season.charAt(0).toUpperCase() + first.season.slice(1);
-    titleEl.innerHTML = `<i class="fas fa-leaf" style="color: #10b981;"></i> Seasonal Anime (${seasonStr} ${first.year || ''})`;
+    titleEl.innerHTML = `<i class="fas fa-leaf"></i> Seasonal Anime (${seasonStr} ${first.year || ''})`;
 }
 
 async function fetchMalData() {
@@ -475,7 +475,7 @@ function renderMalAnime(list, containerId, showRank = true) {
 
         const infoHtml = `
             <div class="card-info">
-                <span class="ep-tag" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); border-color: rgba(99, 102, 241, 0.2);"><i class="fas fa-star"></i> ${score}</span>
+                <span class="ep-tag"><i class="fas fa-star"></i> ${score}</span>
                 <h3>${title}</h3>
             </div>
         `;
@@ -549,27 +549,20 @@ function renderSchedule(data, container) {
     data.forEach(item => {
         const isToday = item.day.toLowerCase() === currentDay.toLowerCase();
         const dayDiv = document.createElement('div');
-        dayDiv.className = 'glass';
-        dayDiv.style.padding = '20px';
-        dayDiv.style.borderRadius = '20px';
-        dayDiv.style.border = isToday ? '2px solid var(--primary)' : '1px solid var(--glass-border)';
-        dayDiv.style.background = isToday ? 'rgba(99, 102, 241, 0.1)' : 'var(--glass)';
+        dayDiv.className = isToday ? 'schedule-day is-today' : 'schedule-day';
 
         dayDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-                <h3 style="color: ${isToday ? 'var(--primary)' : 'white'}; font-size: 1.2rem; font-weight: 800;">
-                    ${item.day} ${isToday ? '<span style="font-size: 0.7rem; background: var(--primary); color: white; padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle;">TODAY</span>' : ''}
+            <div class="schedule-day-head">
+                <h3>
+                    ${item.day} ${isToday ? '<span class="schedule-today">Today</span>' : ''}
                 </h3>
-                <i class="fas fa-calendar-check" style="color: ${isToday ? 'var(--primary)' : 'var(--text-muted)'};"></i>
+                <i class="fas fa-calendar-check"></i>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="schedule-list">
                 ${item.anime.map(anime => `
-                    <button onclick="scheduleSearch('${anime.title.replace(/'/g, "\\'")}', this)" 
-                            style="text-align: left; background: rgba(255,255,255,0.03); color: var(--text-main); border: 1px solid var(--border); padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 0.88rem; transition: all 0.25s; display: flex; align-items: center; gap: 10px;"
-                            onmouseover="this.style.background='var(--primary)';this.style.borderColor='var(--primary)';this.style.transform='translateX(5px)'"
-                            onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.borderColor='var(--border)';this.style.transform='translateX(0)'">
-                        <i class="fas fa-play-circle" style="font-size: 0.8rem; opacity: 0.6;"></i>
-                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${anime.title}</span>
+                    <button onclick="scheduleSearch('${anime.title.replace(/'/g, "\\'")}', this)" class="schedule-item">
+                        <i class="fas fa-play-circle"></i>
+                        <span>${anime.title}</span>
                     </button>
                 `).join('')}
             </div>
