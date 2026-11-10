@@ -199,9 +199,10 @@ function renderHeroCarousel(items) {
 
     let slidesHtml = '';
     items.forEach((item, i) => {
+        const isPoster = !item.banner;
         slidesHtml += `
             <div class="hero-slide">
-                <div class="hero-bg" style="background-image: url('${item.thumb}')"></div>
+                <div class="hero-bg${isPoster ? ' is-poster' : ''}" style="background-image: url('${item.banner || item.thumb}')"></div>
                 <div class="hero-content">
                     <h2 class="hero-title">${item.title}</h2>
                     <a href="watch.html?id=${item.id}${item.episode_id ? '&ep=' + encodeURIComponent(item.episode_id) : ''}" class="hero-btn">

@@ -25,8 +25,10 @@ shape the frontend already renders:
 
 import datetime
 import logging
+import re
 
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger(__name__)
 
@@ -324,3 +326,111 @@ def get_schedule(limit=LIMIT):
     sections; Jikan fills in where Jikan is reachable and AniList is not.
     """
     return _pick([_anilist_schedule, _jikan_schedule], limit)
+
+
+# --- Hero banner artwork ----------------------------------------------------
+# Samehadaku only ships ~225px posters, so a full-bleed hero stretched one
+# across the screen and it looked melted. AniList keeps 1900x400 key art
+# ("bannerImage") for most shows, which is exactly the shape the hero wants.
+# Coverage is not 100%, so callers must treat a missing result as "keep the
+# poster and let the CSS harden it" rather than as an error.
+
+_BANNER_QUERY = """
+query ($search: String) {
+  Media(search: $search, type: ANIME) {
+    title { romaji english }
+    synonyms
+    bannerImage
+  }
+}
+"""
+
+
+def _clean_banner_title(title):
+    t = (title or "").strip()
+    t = re.sub(r"\s*episode\s*\d+.*", "", t, flags=re.I)
+    t = re.sub(r"\s*subtitle\s*indonesia.*", "", t, flags=re.I)
+    t = re.sub(r"\s*subt\s*indonesia.*", "", t, flags=re.I)
+    return t.strip()
+
+
+def _title_tokens(s):
+    return set(re.findall(r"[a-z0-9]{4,}", (s or "").lower()))
+
+
+def _title_ok(source, matched):
+    src = _title_tokens(source)
+    if not src:
+        return True
+    return bool(src & _title_tokens(matched))
+
+
+def _anilist_banner(title):
+    term = _clean_banner_title(title)
+    if len(term) < 4:
+        return None
+    # The base series carries the key art; "Foo: Restart" often has no banner
+    # of its own. Try the short (pre-colon) form first, then the full title.
+    candidates = []
+    short = term.split(":")[0].strip()
+    for c in (short, term):
+        if c and c not in candidates:
+            candidates.append(c)
+    for cand in candidates:
+        if len(cand) < 4:
+            continue
+        try:
+            resp = requests.post(
+                ANILIST_URL,
+                json={"query": _BANNER_QUERY, "variables": {"search": cand}},
+                headers=_HEADERS,
+                timeout=4,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+            if payload.get("errors"):
+                continue
+            media = (payload.get("data") or {}).get("Media")
+            if not media:
+                continue
+            banner = media.get("bannerImage")
+            if not banner:
+                continue
+            t = media.get("title") or {}
+            matched = " ".join(
+                filter(None, [t.get("romaji"), t.get("english")] + (media.get("synonyms") or []))
+            )
+            if not _title_ok(cand, matched):
+                continue
+            return banner
+        except Exception:
+            continue
+    return None
+
+
+def find_banners(titles, max_workers=5, deadline=6.0):
+    """Map {source_title: banner_url or None} for the hero slides.
+
+    Runs the lookups in parallel with a hard overall deadline so a slow AniList
+    can never eat the client's 15s request budget. Missing/uncertain -> None.
+    """
+    import time
+    from concurrent.futures import TimeoutError as FTimeout
+
+    result = {t: None for t in (titles or [])}
+    if not titles:
+        return result
+    start = time.monotonic()
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(titles))) as ex:
+        futures = {ex.submit(_anilist_banner, t): t for t in titles}
+        for fut in futures:
+            remaining = deadline - (time.monotonic() - start)
+            if remaining <= 0:
+                break
+            try:
+                result[futures[fut]] = fut.result(timeout=remaining)
+            except FTimeout:
+                break
+            except Exception:
+                result[futures[fut]] = None
+    return result

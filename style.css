@@ -273,9 +273,9 @@ main#app {
     margin-left: calc(-1 * var(--hero-inset-x));
     margin-right: calc(-1 * var(--app-pad-x));
     margin-top: calc(-1 * var(--hero-inset-y));
-    height: 42vh;
-    min-height: 280px;
-    max-height: 460px;
+    height: 52vh;
+    min-height: 340px;
+    max-height: 600px;
     overflow: hidden;
     margin-bottom: 2rem;
 }
@@ -310,6 +310,26 @@ main#app {
 
 .hero-bg.is-ready {
     opacity: 1;
+}
+
+/* The source only ships ~225px posters, so a poster that has no wide AniList
+   banner cannot fill the hero without looking melted. Keep it at its own
+   proportions on the right, and let a blurred copy of the same artwork fill
+   the rest so no flat pixelated area shows through. */
+.hero-bg.is-poster {
+    background-size: auto 100%;
+    background-position: right center;
+}
+
+.hero-bg.is-poster::before {
+    content: '';
+    position: absolute;
+    inset: -12%;
+    background-image: inherit;
+    background-size: cover;
+    background-position: center;
+    filter: blur(34px) saturate(1.15) brightness(0.55);
+    z-index: 0;
 }
 
 .hero-bg::after {
@@ -711,15 +731,15 @@ main#app {
 
 .anime-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 18px;
 }
 
 .anime-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 10px;
+    border-radius: 10px;
+    padding: 8px;
     cursor: pointer;
     transition:
         transform var(--dur-base) var(--ease-out),
@@ -759,7 +779,7 @@ main#app {
     width: 100%;
     aspect-ratio: 2/3;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: 6px;
     /* Placed first, faded in on decode (script.js adds .is-loaded). Without
        this a grid of twelve posters pops in one row at a time. */
     opacity: 0;
@@ -771,7 +791,7 @@ main#app {
 }
 
 .card-info {
-    padding: 15px 5px 5px 5px;
+    padding: 12px 4px 4px 4px;
 }
 
 .card-info h3 {
@@ -2236,8 +2256,8 @@ main#app {
     }
 
     .hero-carousel {
-        height: 38vh;
-        min-height: 240px;
+        height: 46vh;
+        min-height: 280px;
         margin-bottom: 1.5rem;
     }
 

@@ -93,7 +93,7 @@ def test_api():
 # the deployment's own network. Only the image hosts the scraper actually emits
 # are allowed: samehadaku's own host, and the Jetpack CDN (i0-i3.wp.com) it
 # serves most thumbnails through.
-ALLOWED_IMAGE_HOSTS = ("samehadaku.li", "wp.com")
+ALLOWED_IMAGE_HOSTS = ("samehadaku.li", "wp.com", "anilist.co")
 IMAGE_MAX_REDIRECTS = 3
 
 
@@ -205,7 +205,23 @@ def static_proxy(path):
 @app.route("/api/ongoing", methods=["GET"])
 def get_ongoing():
     page = request.args.get('page', 1, type=int)
-    return _scrape_or_error(lambda: _cached(scraper.get_ongoing, f"ongoing_{page}", page=page))
+
+    def fetch():
+        items = scraper.get_ongoing(page=page)
+        # The hero only needs the first five; give them 1900x400 key art from
+        # AniList so the banner stops being a 225px poster stretched to 1920.
+        if page == 1 and items:
+            try:
+                banners = mal.find_banners([i.get("title", "") for i in items[:5]])
+                for item in items[:5]:
+                    b = banners.get(item.get("title"))
+                    item["banner"] = scraper._proxy(b) if b else None
+            except Exception:
+                for item in items[:5]:
+                    item["banner"] = None
+        return items
+
+    return _scrape_or_error(lambda: _cached(fetch, f"ongoing_{page}"))
 
 @app.route("/api/library", methods=["GET"])
 def get_library():

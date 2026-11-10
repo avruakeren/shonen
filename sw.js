@@ -1,4 +1,4 @@
-const VERSION = '20';
+const VERSION = '21';
 const CACHE_NAME = `shonen-v${VERSION}`;
 const ASSETS = [
   './',
