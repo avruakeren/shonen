@@ -55,10 +55,9 @@
     /* The app column's geometry. The full-bleed banner has to cancel exactly
        these, so they are named instead of repeated -- and they stay in step
        with main#app by construction rather than by agreement. */
-    --nav-w: 0px;
+    --nav-w: 80px;
     --app-pad-x: 5vw;
-    --app-pad-top: 5rem;
-    --top-nav-h: 64px;
+    --app-pad-top: 2rem;
 
     /* The mobile bar is sticky and in flow, so on a phone the banner has to
        clear its height as well as the padding. Applied to the bar itself, so
@@ -170,68 +169,52 @@ main#app {
     display: block;
 }
 
-/* --- TOP / SIDE NAVIGATION ---
-   Desktop: a fixed horizontal bar across the top (logo | items | search).
-   Mobile:  the same element drops to the bottom and becomes the tab bar,
-   while .mobile-header above carries the logo + search. */
+/* --- SIDE NAVIGATION --- */
 .side-nav {
     position: fixed;
-    top: 0;
     left: 0;
-    right: 0;
-    bottom: auto;
-    width: 100%;
-    height: var(--top-nav-h);
+    top: 0;
+    bottom: 0;
+    width: var(--nav-w);
     background: var(--glass);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border-right: none;
-    border-bottom: 1px solid var(--glass-border);
+    border-right: 1px solid var(--glass-border);
+    border-bottom: none;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 var(--app-pad-x);
-    gap: 1rem;
+    padding: 1.5rem 0;
+    gap: 0;
     z-index: 1000;
 }
 
 .nav-logo {
-    font-size: 1.35rem;
+    font-size: 1.55rem;
     color: var(--text-main);
-    margin-bottom: 0;
+    margin-bottom: 2rem;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     text-decoration: none;
 }
 
-.nav-logo::after {
-    content: 'SHONEN';
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 0.95rem;
-    letter-spacing: 0.12em;
-    color: var(--text-main);
-}
-
 .nav-items {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    flex-grow: 0;
+    flex-direction: column;
+    gap: 12px;
+    flex-grow: 1;
 }
 
 .nav-item {
-    width: 44px;
-    height: 44px;
+    width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 12px;
     color: var(--text-muted);
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     transition:
         color var(--dur-fast) var(--ease-out),
         background var(--dur-fast) var(--ease-out),
@@ -245,19 +228,19 @@ main#app {
 .nav-item::after {
     content: '';
     position: absolute;
-    left: 50%;
-    bottom: -1px;
-    width: 0;
-    height: 2px;
+    left: -1px;
+    top: 50%;
+    width: 2px;
+    height: 0;
     background: var(--accent);
-    border-radius: 2px 2px 0 0;
-    transform: translateX(-50%);
-    transition: width var(--dur-fast) var(--ease-out);
+    border-radius: 0 2px 2px 0;
+    transition: height 0.3s, top 0.3s;
 }
 
 .nav-item:hover::after,
 .nav-item.active::after {
-    width: 60%;
+    height: 60%;
+    top: 20%;
 }
 
 .nav-item:hover,
@@ -273,7 +256,7 @@ main#app {
 
 .nav-footer {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     gap: 8px;
 }
@@ -382,7 +365,7 @@ main#app {
        the banner gave up. That leaves the words on the same pixels they always
        sat on while the poster runs to the edges -- and max-width grows with
        the padding so the text column keeps its old width. */
-    padding: 4.5rem 4rem;
+    padding: 3rem 4rem;
     padding-left: calc(var(--hero-inset-x) + 4rem);
     max-width: calc(560px + var(--hero-inset-x));
     /* The reveal is attached to the active slide, not to page load, so every
@@ -2255,24 +2238,6 @@ main#app {
         border: 1px solid var(--glass-border);
         border-bottom: 1px solid var(--glass-border);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    }
-
-    .nav-item::after {
-        left: -1px;
-        top: 50%;
-        bottom: auto;
-        width: 2px;
-        height: 0;
-        border-radius: 0 2px 2px 0;
-        transform: none;
-        transition: height 0.3s, top 0.3s;
-    }
-
-    .nav-item:hover::after,
-    .nav-item.active::after {
-        width: auto;
-        height: 60%;
-        top: 20%;
     }
 
     .nav-logo,
