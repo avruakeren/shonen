@@ -6,6 +6,10 @@ const searchGrid = document.getElementById('searchGrid');
 const libraryGrid = document.getElementById('libraryGrid');
 const favoritesGrid = document.getElementById('favoritesGrid');
 const scheduleContainer = document.getElementById('scheduleContainer');
+const seasonalGrid = document.getElementById('seasonalGrid');
+const topGrid = document.getElementById('topGrid');
+const continueSection = document.getElementById('continueSection');
+const continueGrid = document.getElementById('continueGrid');
 let libraryPage = 1;
 let libraryData = [];
 let currentSort = 'latest';
@@ -373,6 +377,51 @@ function renderAnime(list, container, append = false, empty = {}) {
 }
 
 
+/* --- LANJUT NONTON ---
+   watch.js appends to 'shonen_history' every time an episode is played.
+   The player itself is a third-party iframe, so a playback timestamp is out
+   of reach -- what we track is the last episode per anime, which is exactly
+   what the row needs to say. Nothing renders until that list exists. */
+function getWatchHistory() {
+    try {
+        return JSON.parse(localStorage.getItem('shonen_history') || '[]');
+    } catch { return []; }
+}
+
+function renderContinueWatching() {
+    const section = continueSection;
+    const grid = continueGrid;
+    if (!section || !grid) return;
+
+    const history = getWatchHistory();
+    if (!history.length) {
+        section.hidden = true;
+        grid.innerHTML = '';
+        return;
+    }
+
+    section.hidden = false;
+    grid.innerHTML = '';
+    history.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'anime-card continue-card';
+        card.style.animationDelay = `${Math.min(index, 12) * 45}ms`;
+        card.innerHTML = `
+            <img src="${item.thumb}" alt="${item.title}" class="card-thumb" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+            <div class="card-info">
+                <span class="ep-tag"><i class="fas fa-play"></i> ${esc(item.epLabel || 'Lanjut')}</span>
+                <h3>${esc(item.title)}</h3>
+            </div>
+        `;
+        hydrateThumb(card.querySelector('.card-thumb'));
+        card.onclick = () => {
+            const epParam = item.ep ? `&ep=${encodeURIComponent(item.ep)}` : '';
+            window.location.href = `watch.html?id=${item.id}${epParam}`;
+        };
+        grid.appendChild(card);
+    });
+}
+
 // Consolidated MyAnimeList Logic
 async function fetchMalJson(url, timeoutMs = 12000) {
     const controller = new AbortController();
@@ -436,6 +485,10 @@ function setSeasonalTitle(items) {
 async function fetchMalData() {
     // Each section is loaded independently so a failure in one cannot
     // prevent the other from rendering (the old code chained them).
+    // Skeletons go up first so neither row is a blank strip while waiting.
+    renderSkeleton(seasonalGrid, 8);
+    renderSkeleton(topGrid, 8);
+
     const [seasonal, top] = await Promise.all([
         loadMalSection('seasonal'),
         loadMalSection('top')
@@ -788,6 +841,7 @@ function renderFavorites() {
 // Initial load
 async function initApp() {
     handleRoute();
+    renderContinueWatching();
 
     // Parallelize core fetches for speed
     try {

@@ -152,6 +152,32 @@ input:focus-visible {
     outline-offset: 2px;
 }
 
+/* --- PAGE SCROLLBAR ---
+   The default scrollbar is the one control the browser still paints in its
+   own palette; a thin neutral rail keeps the dark frame unbroken. */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
 /* --- LAYOUT STRUCTURE --- */
 main#app {
     margin-left: var(--nav-w);
@@ -845,6 +871,14 @@ main#app {
 .horizontal-scroll .anime-card {
     min-width: 200px;
     max-width: 200px;
+}
+
+/* The skeleton rides the same rail while data is on its way, so it inherits
+   the card width rather than collapsing to a sliver. */
+.horizontal-scroll .card-skeleton {
+    flex: 0 0 200px;
+    width: 200px;
+    min-height: 280px;
 }
 
 /* --- SEARCH OVERLAY --- */
@@ -1945,6 +1979,39 @@ main#app {
     margin-left: 4px;
 }
 
+/* Prev/next episode sit in the header row, right-aligned like the badge.
+   Same material language as .quality-btn: token fill, token edge, no blur
+   (the panel underneath is already frosted). */
+.ep-nav-btns {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.ep-nav-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--glass-btn-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition:
+        color var(--dur-fast) var(--ease-out),
+        background var(--dur-fast) var(--ease-out),
+        border-color var(--dur-fast) var(--ease-out);
+}
+
+.ep-nav-btn:hover {
+    background: var(--glass-active-bg);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
 .episode-select-wrapper {
     width: 100%;
 }
@@ -2141,6 +2208,11 @@ main#app {
 .recommended-section .horizontal-scroll .anime-card {
     min-width: 170px;
     max-width: 170px;
+}
+
+.recommended-section .horizontal-scroll .card-skeleton {
+    flex-basis: 170px;
+    width: 170px;
 }
 
 /* --- Error State --- */

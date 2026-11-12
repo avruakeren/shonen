@@ -17,6 +17,9 @@ const infoModalClose = document.getElementById('infoModalClose');
 let currentAnimeId = null;
 let currentEpisodes = [];
 let currentEpisodeId = null;
+/* Title + thumb captured once the details land, so the home page's
+   "Lanjut Nonton" row can render a card without another fetch. */
+let currentAnimeMeta = { title: '', thumb: '' };
 
 /* Same fade-in contract as the home grid: the poster becomes visible once the
    bitmap decoded, so the panel never flashes an empty rectangle. */
@@ -166,6 +169,7 @@ async function initWatch() {
 }
 
 function renderDetails(anime) {
+    currentAnimeMeta = { title: anime.title || '', thumb: anime.thumb || '' };
     currentEpisodes = anime.episodes || [];
     renderAnimeInfo(anime);
     renderEpisodeDropdown(anime.episodes);
@@ -174,6 +178,7 @@ function renderDetails(anime) {
 }
 
 function renderFallbackDetails(anime) {
+    currentAnimeMeta = { title: anime.title || '', thumb: anime.thumb || '' };
     currentEpisodes = [];
     renderAnimeInfo(anime);
     renderEpisodeDropdown([]);
@@ -308,10 +313,60 @@ function getEpLabel(id) {
     return `EP ${num}${clean ? ' - ' + clean : ''}`;
 }
 
+/* The player is someone else's iframe, so no playback seconds can be read
+   from it -- "Lanjut Nonton" is therefore an episode ledger, not a timeline:
+   which anime, which episode, when. Kept short (12) and fresh on top. */
+function saveHistory() {
+    if (!currentAnimeMeta.title) return;
+    try {
+        let history = JSON.parse(localStorage.getItem('shonen_history') || '[]');
+        history = history.filter(h => h.id !== currentAnimeId);
+        history.unshift({
+            id: currentAnimeId,
+            title: currentAnimeMeta.title,
+            thumb: currentAnimeMeta.thumb,
+            ep: currentEpisodeId,
+            epLabel: getEpLabel(currentEpisodeId),
+            updated: Date.now()
+        });
+        localStorage.setItem('shonen_history', JSON.stringify(history.slice(0, 12)));
+    } catch {}
+}
+
+/* Prev/next sit in the episode panel's header row, next to the count badge.
+   Rebuilt on every play so the buttons follow whichever episode is live. */
+function renderEpisodeNav() {
+    const header = document.querySelector('.episode-header');
+    if (!header) return;
+
+    const idx = currentEpisodes.findIndex(e => e.id === currentEpisodeId);
+    const prev = idx > 0 ? currentEpisodes[idx - 1] : null;
+    const next = idx >= 0 && idx < currentEpisodes.length - 1 ? currentEpisodes[idx + 1] : null;
+
+    let wrap = header.querySelector('.ep-nav-btns');
+    if (!prev && !next) {
+        if (wrap) wrap.remove();
+        return;
+    }
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'ep-nav-btns';
+        header.appendChild(wrap);
+    }
+    wrap.innerHTML = `
+        ${prev ? `<button type="button" class="ep-nav-btn" data-ep="${prev.id}" title="Episode sebelumnya" aria-label="Episode sebelumnya"><i class="fas fa-step-backward"></i></button>` : ''}
+        ${next ? `<button type="button" class="ep-nav-btn" data-ep="${next.id}" title="Episode berikutnya" aria-label="Episode berikutnya"><i class="fas fa-step-forward"></i></button>` : ''}
+    `;
+    wrap.querySelectorAll('.ep-nav-btn').forEach(btn => {
+        btn.onclick = () => playEpisode(btn.dataset.ep);
+    });
+}
+
 async function playEpisode(id) {
     if (!id) return;
     currentEpisodeId = id;
     setEpisodeProgress(currentAnimeId, id);
+    saveHistory();
 
     const select = document.querySelector('.episode-select');
     if (select) {
@@ -322,6 +377,7 @@ async function playEpisode(id) {
             opt.textContent = isWatched ? '✓ ' + label : label;
         });
     }
+    renderEpisodeNav();
 
     showPlayerSkeleton();
     if (nowPlayingIndicator) {
@@ -470,6 +526,19 @@ function renderDownloads(downloads) {
 }
 
 async function renderRecommended(animeId) {
+    // Same skeleton contract as the home grids: a shimmering strip instead of
+    // an empty row while the feed answers.
+    if (recommendedGrid) {
+        recommendedGrid.innerHTML = Array.from({ length: 8 }).map(() => `
+            <div class="card-skeleton">
+                <div class="skel-thumb"></div>
+                <div class="skel-body">
+                    <div class="skel-line short"></div>
+                    <div class="skel-line"></div>
+                </div>
+            </div>
+        `).join('');
+    }
     try {
         const response = await fetch(`${API_BASE}/ongoing`);
         const data = await response.json();
@@ -539,8 +608,24 @@ if (infoOverlay) {
         if (e.target === infoOverlay) closeInfo();
     });
 }
+/* Navigasi episode dari keyboard. The iframe swallows keys while focused, so
+   these only matter when the page itself has focus -- deliberately N/P:
+   Space and arrows are assumed to belong to the player. */
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeInfo();
+    if (e.key === 'Escape') {
+        closeInfo();
+        return;
+    }
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+
+    const key = e.key.toLowerCase();
+    if (key !== 'n' && key !== 'p') return;
+
+    const idx = currentEpisodes.findIndex(ep => ep.id === currentEpisodeId);
+    if (idx < 0) return;
+    const target = key === 'n' ? currentEpisodes[idx + 1] : currentEpisodes[idx - 1];
+    if (target) playEpisode(target.id);
 });
 
 initWatch();
